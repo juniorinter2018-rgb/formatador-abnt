@@ -1,0 +1,20 @@
+{
+  "referencias": [
+    {
+      "tipo": "livro",
+      "autor": "ASSIS, Machado de",
+      "titulo": "Dom Casmurro",
+      "cidade": "Rio de Janeiro",
+      "editora": "Editora Clássicos",
+      "ano": 1899
+    },
+    {
+      "tipo": "livro",
+      "autor": "LISPECTOR, Clarice",
+      "titulo": "A hora da estrela",
+      "cidade": "Rio de Janeiro",
+      "editora": "Rocco",
+      "ano": 1977
+    }
+  ]
+}

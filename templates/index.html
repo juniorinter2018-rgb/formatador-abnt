@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formatador ABNT Gratuito</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f7f6; color: #333; margin: 20px; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; text-align: center; }
+        textarea { width: 98%; height: 200px; padding: 10px; font-size: 1em; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 20px;}
+        .referencia { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; background: #fafafa; }
+        input[type="text"] { width: 95%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ccc; }
+        button { background-color: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; font-size: 1.1em; font-weight: bold; display: block; width: 100%; margin-top: 20px; }
+        button:hover { background-color: #2980b9; }
+        #btnAdicionar { background-color: #2ecc71; margin-bottom: 20px; width: auto; padding: 10px 15px; font-size: 0.9em;}
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Formatador ABNT Gratuito (Versão 1.0)</h1>
+
+        <h2>Corpo do Texto</h2>
+        <textarea id="textoTrabalho" placeholder="Cole aqui o corpo do seu trabalho. Separe os parágrafos com uma linha em branco."></textarea>
+
+        <h2>Referências Bibliográficas (Tipo: Livro)</h2>
+        <div id="referenciasContainer">
+            <div class="referencia">
+                <input type="text" class="autor" placeholder="Autor (Ex: SILVA, João)">
+                <input type="text" class="titulo" placeholder="Título (Ex: A Arte de Programar)">
+                <input type="text" class="cidade" placeholder="Cidade (Ex: Rio de Janeiro)">
+                <input type="text" class="editora" placeholder="Editora (Ex: Código Certo)">
+                <input type="text" class="ano" placeholder="Ano (Ex: 2025)">
+            </div>
+        </div>
+        <button id="btnAdicionar">Adicionar outra referência</button>
+
+        <button id="btnFormatar">Formatar e Baixar .DOCX</button>
+    </div>
+
+    <script>
+        // Adiciona um novo bloco de referência quando o botão é clicado
+        document.getElementById('btnAdicionar').addEventListener('click', function() {
+            const container = document.getElementById('referenciasContainer');
+            const novoBloco = container.children[0].cloneNode(true);
+            // Limpa os campos do novo bloco
+            novoBloco.querySelectorAll('input').forEach(input => input.value = '');
+            container.appendChild(novoBloco);
+        });
+
+        // Pega os dados do formulário e envia para a API
+        document.getElementById('btnFormatar').addEventListener('click', async function() {
+            const texto = document.getElementById('textoTrabalho').value;
+            const referencias = [];
+            
+            document.querySelectorAll('.referencia').forEach(bloco => {
+                const autor = bloco.querySelector('.autor').value;
+                if (autor) { // Só adiciona se o campo autor estiver preenchido
+                    referencias.push({
+                        tipo: "livro",
+                        autor: autor,
+                        titulo: bloco.querySelector('.titulo').value,
+                        cidade: bloco.querySelector('.cidade').value,
+                        editora: bloco.querySelector('.editora').value,
+                        ano: bloco.querySelector('.ano').value
+                    });
+                }
+            });
+
+            const dadosParaEnviar = {
+                texto: texto,
+                referencias: referencias
+            };
+
+            // Envia os dados para o nosso servidor Flask
+            const response = await fetch('/formatar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dadosParaEnviar)
+            });
+
+            // Se a resposta for OK, baixa o arquivo
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'trabalho_formatado.docx';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } else {
+                alert("Ocorreu um erro ao formatar o documento.");
+            }
+        });
+    </script>
+
+</body>
+</html>
