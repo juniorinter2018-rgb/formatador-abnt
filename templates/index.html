@@ -74,7 +74,7 @@
             };
 
             // Envia os dados para o nosso servidor Flask
-            const response = await fetch('/formatar', {
+            const response = await fetch('https://formatador-abnt-15eg.onrender.com/formatar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(dadosParaEnviar)
