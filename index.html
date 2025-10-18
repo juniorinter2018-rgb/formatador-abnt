@@ -8,7 +8,7 @@
         body { font-family: sans-serif; background-color: #f4f7f6; color: #333; margin: 20px; }
         .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         h1, h2 { color: #2c3e50; text-align: center; }
-        textarea { width: 98%; height: 200px; padding: 10px; font-size: 1em; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 20px;}
+        textarea { width: 98%; height: 200px; padding: 10px; font-size: 1em; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 5px;} /* margem ajustada */
         .referencia { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; background: #fafafa; }
         input[type="text"], select { width: 98%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ccc; background-color: white;}
         button { background-color: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; font-size: 1.1em; font-weight: bold; display: block; width: 100%; margin-top: 20px; }
@@ -20,10 +20,11 @@
 <body>
 
     <div class="container">
-        <h1>Formatador ABNT Gratuito (Versão 1.1)</h1>
+        <h1>Formatador ABNT Gratuito (Versão 1.2)</h1>
 
         <h2>Corpo do Texto</h2>
         <textarea id="textoTrabalho" placeholder="Cole aqui o corpo do seu trabalho. Separe os parágrafos com uma linha em branco."></textarea>
+        <p style="font-size: 0.9em; color: #555; text-align: center; margin-top:0; margin-bottom: 20px;"><b>Dica:</b> Para criar seções e sumário, marque seus títulos com #. Ex: # Introdução, ## Objetivos</p>
 
         <h2>Referências Bibliográficas</h2>
         <div id="referenciasContainer">
@@ -34,24 +35,19 @@
                     <option value="site">Artigo de Site</option>
                     <option value="artigo">Artigo Científico (PDF)</option>
                 </select>
-
                 <hr>
-                
                 <input type="text" class="autor" placeholder="Autor (Ex: SILVA, João)">
                 <input type="text" class="titulo" placeholder="Título do trabalho/artigo">
                 <input type="text" class="ano" placeholder="Ano de publicação">
-
                 <div class="campos-especificos campos-livro" style="display: block;">
                     <input type="text" class="cidade" placeholder="Cidade">
                     <input type="text" class="editora" placeholder="Editora">
                 </div>
-                
                 <div class="campos-especificos campos-site">
                     <input type="text" class="nome_site" placeholder="Nome do Site/Blog">
                     <input type="text" class="url" placeholder="URL (Link completo)">
                     <input type="text" class="data_acesso" placeholder="Data de Acesso (Ex: 25 out. 2025)">
                 </div>
-
                 <div class="campos-especificos campos-artigo">
                     <input type="text" class="nome_revista" placeholder="Nome da Revista/Periódico">
                     <input type="text" class="volume" placeholder="Volume (v.)">
@@ -67,49 +63,33 @@
     <script>
         function configurarLogicaReferencia(bloco) {
             const select = bloco.querySelector('.tipo-referencia');
-            
-            // Função para mostrar/esconder campos
             const atualizarCampos = () => {
                 const tipo = select.value;
-                // Esconde todos os campos específicos
                 bloco.querySelectorAll('.campos-especificos').forEach(div => div.style.display = 'none');
-                // Mostra o campo do tipo selecionado
                 const camposParaMostrar = bloco.querySelector(`.campos-${tipo}`);
                 if (camposParaMostrar) {
                     camposParaMostrar.style.display = 'block';
                 }
             };
-
-            // Adiciona o "ouvinte" de evento
             select.addEventListener('change', atualizarCampos);
-            // Garante que os campos corretos sejam mostrados ao carregar
             atualizarCampos();
         }
 
-        // Aplica a lógica a todos os blocos de referência existentes (inicialmente, apenas um)
         document.querySelectorAll('.referencia').forEach(configurarLogicaReferencia);
 
-        // Lógica para adicionar um novo bloco de referência
         document.getElementById('btnAdicionar').addEventListener('click', function() {
             const container = document.getElementById('referenciasContainer');
             const primeiroBloco = container.children[0];
             const novoBloco = primeiroBloco.cloneNode(true);
-            
-            // Limpa os campos do novo bloco clonado
             novoBloco.querySelectorAll('input').forEach(input => input.value = '');
-            novoBloco.querySelector('select').value = 'livro'; // Reseta para 'livro'
-            
+            novoBloco.querySelector('select').value = 'livro';
             container.appendChild(novoBloco);
-            
-            // Aplica a lógica de mostrar/esconder ao novo bloco
             configurarLogicaReferencia(novoBloco);
-            // Força a atualização visual do novo bloco
             novoBloco.querySelector('.tipo-referencia').dispatchEvent(new Event('change'));
         });
 
-        // Lógica para formatar e enviar os dados para a API
         document.getElementById('btnFormatar').addEventListener('click', async function() {
-            this.innerText = 'Formatando...'; // Feedback visual
+            this.innerText = 'Formatando...';
             this.disabled = true;
 
             const texto = document.getElementById('textoTrabalho').value;
@@ -117,7 +97,7 @@
             
             document.querySelectorAll('.referencia').forEach(bloco => {
                 const autor = bloco.querySelector('.autor').value;
-                if (!autor) return; // Pula blocos vazios
+                if (!autor) return;
 
                 const tipo = bloco.querySelector('.tipo-referencia').value;
                 const referencia = {
@@ -127,7 +107,6 @@
                     ano: bloco.querySelector('.ano').value
                 };
 
-                // Coleta dados específicos de cada tipo
                 if (tipo === 'livro') {
                     referencia.cidade = bloco.querySelector('.cidade').value;
                     referencia.editora = bloco.querySelector('.editora').value;
@@ -152,7 +131,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(dadosParaEnviar)
                 });
-
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);

@@ -1,5 +1,21 @@
-A automação de tarefas repetitivas representa um avanço significativo na otimização de processos em diversas áreas do conhecimento. A formatação de documentos acadêmicos, por exemplo, é uma atividade que consome tempo e exige atenção a detalhes específicos de normas técnicas, como as da ABNT.
+# INTRODUÇÃO
 
-A padronização de margens, espaçamentos, fontes e referências é crucial para a validação formal do trabalho, mas desvia o foco do pesquisador do que é mais importante: o conteúdo da sua pesquisa. Ferramentas que automatizam essa formatação podem, portanto, aumentar a produtividade e reduzir a incidência de erros.
+A automação de tarefas repetitivas representa um avanço significativo na otimização de processos. A formatação de documentos acadêmicos é uma atividade que consome tempo e exige atenção a detalhes específicos de normas técnicas.
 
-Este projeto visa explorar a viabilidade e o desenvolvimento de uma solução de software para automatizar a formatação de documentos, começando pelos elementos fundamentais da estrutura de um parágrafo.
+Este projeto visa explorar a viabilidade de uma solução para automatizar a formatação, começando pelos elementos fundamentais da estrutura de um parágrafo e, agora, avançando para a estruturação de seções.
+
+## OBJETIVOS
+
+O principal objetivo deste trabalho é desenvolver uma ferramenta robusta e de fácil utilização para a comunidade acadêmica.
+
+### Objetivos Específicos
+
+Os objetivos específicos incluem a formatação de parágrafos, a geração automática de referências bibliográficas e a criação de um sumário funcional. Cada etapa representa um módulo crucial da aplicação final.
+
+# METODOLOGIA
+
+A metodologia adotada foi o desenvolvimento incremental, iniciando com um Produto Mínimo Viável (MVP) e evoluindo com base no feedback dos usuários. A escolha das tecnologias, como Python e Flask, foi baseada na robustez e na vasta quantidade de bibliotecas disponíveis para manipulação de documentos.
+
+## Ferramentas Utilizadas
+
+As principais ferramentas foram a biblioteca python-docx para a geração de documentos Word e o microframework Flask para a criação da API que serve a aplicação. A interface do usuário foi construída com HTML, CSS e JavaScript puros para garantir leveza e compatibilidade.
