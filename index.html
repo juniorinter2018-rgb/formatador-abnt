@@ -75,7 +75,7 @@
             </div>
         </div>
         <button id="btnAdicionar">Adicionar outra referência</button>
-        <button id="btnFormatar">Formatar e Baixar .DOCX</button>
+        <button id="btnFormatar">Formatar e Baixar .PDF</button>
     </div>
 
     <script>
@@ -127,6 +127,7 @@
             const dadosParaEnviar = { info_trabalho, texto, referencias };
 
             try {
+                // Lembre-se de trocar pela URL da sua API (se for diferente)
                 const response = await fetch('https://formatador-abnt-15eg.onrender.com/formatar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -137,7 +138,7 @@
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.style.display = 'none'; a.href = url;
-                    a.download = 'trabalho_formatado.docx';
+                    a.download = 'trabalho_formatado.pdf'; // <-- MUDANÇA AQUI
                     document.body.appendChild(a); a.click();
                     window.URL.revokeObjectURL(url);
                 } else {
@@ -147,7 +148,7 @@
                 console.error('Erro de rede:', error);
                 alert("Não foi possível conectar ao servidor. Verifique sua internet.");
             } finally {
-                this.innerText = 'Formatar e Baixar .DOCX';
+                this.innerText = 'Formatar e Baixar .PDF'; // <-- MUDANÇA AQUI
                 this.disabled = false;
             }
         });
