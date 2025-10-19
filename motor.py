@@ -1,11 +1,10 @@
-# motor.py (v14 - Revertendo Sumário para Parágrafos Simples)
+# motor.py (v12 - Paginação Correta, Sumário Simples)
 
 import io
 import re
 from reportlab.lib import pagesizes
 from reportlab.lib.units import cm
 from reportlab.platypus import BaseDocTemplate, Paragraph, Spacer, PageBreak, Frame, PageTemplate, NextPageTemplate, KeepTogether
-# Remover importações de Table, TableStyle, TA_RIGHT, gray se não usadas em outro lugar
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 from reportlab.pdfgen import canvas
@@ -15,7 +14,7 @@ from reportlab.lib.colors import black
 styles = getSampleStyleSheet()
 PAGE_WIDTH, PAGE_HEIGHT = pagesizes.A4
 
-# Estilos ABNT (removido SumarioPagina)
+# Estilos ABNT
 styles.add(ParagraphStyle(name='CorpoABNT', fontName='Times-Roman', fontSize=12, leading=18, alignment=TA_JUSTIFY, firstLineIndent=1.25*cm, spaceAfter=6))
 styles.add(ParagraphStyle(name='CitacaoLonga', fontName='Times-Roman', fontSize=10, leading=12, alignment=TA_JUSTIFY, leftIndent=4*cm, spaceBefore=6, spaceAfter=6))
 styles.add(ParagraphStyle(name='CapaTitulo', fontName='Times-Roman', fontSize=14, alignment=TA_CENTER, textColor=black))
@@ -25,16 +24,19 @@ styles.add(ParagraphStyle(name='Referencia', fontName='Times-Roman', fontSize=12
 styles.add(ParagraphStyle(name='Titulo1', fontName='Times-Roman', fontSize=12, leading=18, spaceBefore=12, spaceAfter=6, keepWithNext=1, textColor=black))
 styles.add(ParagraphStyle(name='Titulo2', fontName='Times-Roman', fontSize=12, leading=18, spaceBefore=12, spaceAfter=6, keepWithNext=1, textColor=black))
 styles.add(ParagraphStyle(name='Titulo3', fontName='Times-Roman', fontSize=12, leading=18, spaceBefore=12, spaceAfter=6, keepWithNext=1, textColor=black))
-styles.add(ParagraphStyle(name='SumarioItem', fontName='Times-Roman', fontSize=12, leading=14, alignment=TA_LEFT)) # Mantém estilo base
+styles.add(ParagraphStyle(name='SumarioItem', fontName='Times-Roman', fontSize=12, leading=14, alignment=TA_LEFT))
 
 
-# --- FUNÇÕES DE DESENHO DE PÁGINA (Inalteradas da v12) ---
+# --- FUNÇÕES DE DESENHO DE PÁGINA ---
+
+# Função para desenhar número (usando canvas.getPageNumber())
 def draw_page_number_textual(canvas, doc):
     page_num = canvas.getPageNumber()
     canvas.saveState(); canvas.setFont('Times-Roman', 10)
     canvas.drawRightString(PAGE_WIDTH - 2*cm, PAGE_HEIGHT - 2*cm, str(page_num))
     canvas.restoreState()
 
+# Função para não fazer nada
 def do_nothing_pretextual(canvas, doc):
     pass
 
@@ -45,7 +47,7 @@ def gerar_documento(info_trabalho, dados_texto, dados_referencias):
                           rightMargin=2*cm, leftMargin=3*cm,
                           topMargin=3*cm, bottomMargin=2*cm)
 
-    # --- FRAMES E TEMPLATES (Inalterado da v12) ---
+    # --- FRAMES E TEMPLATES ---
     frame_padrao = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id='frame_normal')
     template_pre = PageTemplate(id='pretextual', frames=[frame_padrao], onPage=do_nothing_pretextual)
     template_corpo = PageTemplate(id='textual', frames=[frame_padrao], onPage=draw_page_number_textual)
@@ -53,15 +55,18 @@ def gerar_documento(info_trabalho, dados_texto, dados_referencias):
 
     # --- MONTAGEM DA 'STORY' ---
     story = []
-    story.append(NextPageTemplate('pretextual'))
+    story.append(NextPageTemplate('pretextual')) # Começa com pretextual
 
-    # --- ELEMENTOS PRÉ-TEXTUAIS (Inalterado da v12) ---
+    # --- ELEMENTOS PRÉ-TEXTUAIS ---
     tem_elementos_pre_textuais = bool(info_trabalho.get('instituicao'))
     if tem_elementos_pre_textuais:
+        # CAPA (Página 1)
         capa_content = [ Spacer(1, 1*cm), Paragraph(info_trabalho.get('instituicao', '').upper(), styles['CapaTexto']), Spacer(1, 0.5*cm), Paragraph(info_trabalho.get('curso', '').upper(), styles['CapaTexto']), Spacer(1, 5*cm), Paragraph(info_trabalho.get('autor', '').upper(), styles['CapaTexto']), Spacer(1, 5*cm), Paragraph(f"<b>{info_trabalho.get('titulo', '').upper()}</b>", styles['CapaTitulo']) ]
         if info_trabalho.get('subtitulo'): capa_content.extend([Spacer(1, 0.5*cm), Paragraph(info_trabalho.get('subtitulo', '').upper(), styles['CapaTexto'])])
         capa_content.extend([ Spacer(1, 7*cm), Paragraph(info_trabalho.get('cidade', '').upper(), styles['CapaTexto']), Spacer(1, 0.5*cm), Paragraph(info_trabalho.get('ano', ''), styles['CapaTexto']) ])
         story.append(KeepTogether(capa_content)); story.append(PageBreak())
+
+        # FOLHA DE ROSTO (Página 2)
         rosto_content = [ Spacer(1, 1*cm), Paragraph(info_trabalho.get('autor', '').upper(), styles['CapaTexto']), Spacer(1, 4*cm), Paragraph(f"<b>{info_trabalho.get('titulo', '').upper()}</b>", styles['CapaTitulo']) ]
         if info_trabalho.get('subtitulo'): rosto_content.extend([Spacer(1, 0.5*cm), Paragraph(info_trabalho.get('subtitulo', '').upper(), styles['CapaTexto'])])
         nota_curso = info_trabalho.get('curso', '[Nome do Curso]'); nota_instituicao = info_trabalho.get('instituicao', '[Nome da Instituição]')
@@ -71,10 +76,9 @@ def gerar_documento(info_trabalho, dados_texto, dados_referencias):
         rosto_content.extend([ Spacer(1, 7*cm), Paragraph(info_trabalho.get('cidade', '').upper(), styles['CapaTexto']), Spacer(1, 0.5*cm), Paragraph(info_trabalho.get('ano', ''), styles['CapaTexto']) ])
         story.append(KeepTogether(rosto_content)); story.append(PageBreak())
 
-    # --- PROCESSAMENTO DO CORPO (Inalterado da v12) ---
+    # --- PROCESSAMENTO DO CORPO ---
     corpo_story = []; entradas_sumario = []; contadores_secao = {'h1': 0, 'h2': 0, 'h3': 0}
     linhas_texto = re.split(r'\n\s*\n+', dados_texto.strip())
-    # ... (Loop de processamento do texto inalterado) ...
     for linha in linhas_texto:
         linha = linha.strip(); paragrafo_obj = None; titulo_formatado = ""
         if not linha: continue
@@ -93,24 +97,20 @@ def gerar_documento(info_trabalho, dados_texto, dados_referencias):
         if paragrafo_obj: corpo_story.append(paragrafo_obj)
         if titulo_formatado: entradas_sumario.append(titulo_formatado)
 
-    # --- SUMÁRIO (Página 3) ---
+    # --- SUMÁRIO (Página 3 - Versão Simples com Parágrafos) ---
     if entradas_sumario:
-        story.append(Paragraph("<b>SUMÁRIO</b>", styles['CapaTitulo']))
-        story.append(Spacer(1, 1*cm))
-        
-        # *** REVERTIDO: Voltar a usar Parágrafos simples ***
-        for entrada_texto in entradas_sumario:
-            story.append(Paragraph(entrada_texto, styles['SumarioItem'])) # Usa o estilo base
-        # *** FIM DA REVERSÃO ***
+        story.append(Paragraph("<b>SUMÁRIO</b>", styles['CapaTitulo'])); story.append(Spacer(1, 1*cm))
+        for entrada in entradas_sumario:
+            story.append(Paragraph(entrada, styles['SumarioItem'])) # Adiciona como parágrafo simples
 
-        # Define template da próxima página e quebra (ordem correta da v12)
+        # Define template da próxima página ANTES da quebra
         story.append(NextPageTemplate('textual'))
-        story.append(PageBreak())
+        story.append(PageBreak()) # Quebra para a página 4
 
-    # --- CORPO (A partir da Página 4 - Inalterado) ---
+    # --- CORPO (A partir da Página 4) ---
     story.extend(corpo_story)
 
-    # --- REFERÊNCIAS (Inalterado) ---
+    # --- REFERÊNCIAS ---
     if dados_referencias:
         story.append(PageBreak()); story.append(Paragraph("<b>REFERÊNCIAS</b>", styles['Titulo1'])); story.append(Spacer(1, 0.5*cm))
         for ref in dados_referencias:
@@ -125,14 +125,16 @@ def gerar_documento(info_trabalho, dados_texto, dados_referencias):
     buffer.seek(0)
     return buffer
 
-# --- BLOCO DE TESTE (igual v12, nome do arquivo v14) ---
+# --- BLOCO DE TESTE ---
 if __name__ == "__main__":
-    print("--- Iniciando teste do motor.py (v14 - Revertendo Sumário) ---")
+    # Mantendo v12 no nome para indicar a versão funcional que estamos restaurando
+    print("--- Iniciando teste do motor.py (v12 - Paginação OK, Sumário Simples) ---")
     info_trabalho_teste = { 'autor': 'Junio da Silva', 'titulo': 'Desenvolvimento de um Formatador ABNT Automatizado', 'subtitulo': 'Um Estudo de Caso com Python e ReportLab', 'instituicao': 'Universidade Federal da Inovação', 'curso': 'Ciência da Computação', 'cidade': 'São Paulo', 'ano': '2025', 'orientador': 'Prof. Dr. Alan Turing' }
-    dados_texto_teste = """# INTRODUÇÃO\n\nA automação de tarefas repetitivas representa um avanço significativo na otimização de processos.\n\nA formatação de documentos acadêmicos é uma atividade que consome tempo e exige atenção a detalhes. Como aponta a teoria, "a automação libera o potencial humano para tarefas mais criativas" [c: SANTOS, 2024, p. 15].\n\n## OBJETIVOS\n\n[clonga]O objetivo principal deste trabalho é desenvolver uma ferramenta robusta e de fácil utilização que possa ser amplamente adotada pela comunidade acadêmica, reduzindo significativamente o tempo gasto com formatação manual e aumentando a conformidade dos trabalhos com as normas técnicas vigentes.[fimclonga] (PEREIRA, 2023, p. 78)\n\nIsso é alcançado através de um desenvolvimento incremental.\n\n# METODOLOGIA\n\nA metodologia adotada foi o desenvolvimento ágil, focando em entregas contínuas de valor.\n"""
+    dados_texto_teste = """# INTRODUÇÃO\n\nA automação de tarefas repetitivas representa um avanço significativo na otimização de processos.\n\nA formatação de documentos acadêmicos é uma atividade que consome tempo e exige atenção a detalhes. Como aponta a teoria, "a automação libera o potencial humano para tarefas mais criativas" [c: SANTOS, 2024, p. 15].\n\n## OBJETIVOS\n\n[clonga]O objetivo principal deste trabalho é desenvolver uma ferramenta robusta e de fácil utilização que possa ser amplamente adotada pela comunidade acadêmica, reduzindo significativamente o tempo gasto com formatação manual e aumentando a conformidade dos trabalhos com as normas técnicas vigentes.[fimclonga] (PEREIRA, 2023, p. 78)\n\nIsso é alcançado através de um desenvolvimento incremental.\n\n### OBJETIVO ESPECÍFICO 1\n\nDetalhes do objetivo 1.\n\n### OBJETIVO ESPECÍFICO 2\n\nDetalhes do objetivo 2.\n\n# METODOLOGIA\n\nA metodologia adotada foi o desenvolvimento ágil, focando em entregas contínuas de valor.\n"""
     dados_referencias_teste = [ { "tipo": "livro", "autor": "ASSIS, Machado de", "titulo": "Dom Casmurro", "cidade": "Rio de Janeiro", "editora": "Editora Clássicos", "ano": "1899" }, { "tipo": "artigo", "autor": "TURING, Alan", "titulo": "Computing Machinery and Intelligence", "nome_revista": "Mind", "volume": "LIX", "numero": "236", "paginas": "p. 433-460", "ano": "1950" } ]
     print("Gerando documento...")
     pdf_em_memoria = gerar_documento(info_trabalho_teste, dados_texto_teste, dados_referencias_teste)
-    with open("TESTE_SAIDA_v14.pdf", "wb") as f: f.write(pdf_em_memoria.getbuffer())
+    # Salvar como v12 para clareza
+    with open("TESTE_SAIDA_v12_restaurado.pdf", "wb") as f: f.write(pdf_em_memoria.getbuffer())
     print("\n--- Teste Concluído! ---")
-    print("Arquivo 'TESTE_SAIDA_v14.pdf' foi gerado.")
+    print("Arquivo 'TESTE_SAIDA_v12_restaurado.pdf' foi gerado.")
