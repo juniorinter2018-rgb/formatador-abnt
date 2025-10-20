@@ -3,81 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Formatador ABNT</title>
-    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <title>Formatador ABNT com CKEditor</title>
+    <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+
     <style>
         body { background-color: #f0f2f5; font-family: 'Arial', sans-serif; margin: 0; padding: 20px 0; }
         .container { max-width: 1200px; margin: auto; }
         .config-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
         h1, h2 { color: #2c3e50; text-align: center; }
-        
         .button-group { display: flex; gap: 10px; margin-top: 20px; }
         button { background-color: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; font-size: 1.1em; font-weight: bold; display: block; width: 100%; }
-        button:hover { background-color: #2980b9; }
-        button#btnVisualizar { background-color: #1abc9c; }
-        button#btnVisualizar:hover { background-color: #16a085; }
+        button#btnFormatar { background-color: #1abc9c; }
         button#btnAdicionar { background-color: #2ecc71; margin-bottom: 20px; width: auto; padding: 10px 15px; font-size: 0.9em; display: inline-block;}
 
-        /* --- Estilos do Modo de Escrita (Editor) --- */
-        .editor-container {
+        #editor-container {
             background: white;
             width: 21cm;
-            min-height: 29.7cm; 
+            min-height: 29.7cm;
             margin: 20px auto;
             box-shadow: 0 0 15px rgba(0,0,0,0.15);
-            padding: 3cm 2cm 2cm 3cm; /* Margens ABNT */
+            padding: 1cm;
             box-sizing: border-box;
         }
-        #editor { height: 100%; }
-        .ql-editor.ql-blank::before{ content: 'Comece a escrever aqui...'; font-style: normal; color: #aaa; position: absolute; }
-        .ql-editor h1 { font-weight: bold; text-transform: uppercase; }
-        .ql-editor h2 { font-weight: bold; }
-        .ql-editor blockquote {
-            border-left: none;
+
+        /* --- ESTILOS WYSIWYG ABNT COM NUMERAÇÃO AUTOMÁTICA --- */
+
+        .ck-editor__editable_inline {
+            width: 100%;
+            min-height: 27.7cm;
+            padding: 3cm 2cm 2cm 3cm !important;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+            font-size: 12pt;
+            line-height: 1.5;
+        }
+        
+        /* 1. Prepara o editor para contar os títulos */
+        .ck-content {
+            counter-reset: h1; /* Inicia o contador de Título 1 */
+        }
+        
+        .ck-content h1 {
+            counter-reset: h2; /* Reinicia o contador de Título 2 sempre que um Título 1 aparece */
+        }
+
+        /* 2. Adiciona os números antes dos títulos usando CSS */
+        .ck-content h1::before {
+            counter-increment: h1;
+            content: counter(h1) " "; /* Exibe o número e um espaço */
+        }
+
+        .ck-content h2::before {
+            counter-increment: h2;
+            content: counter(h1) "." counter(h2) " "; /* Exibe "1.1 ", "1.2 ", etc. */
+        }
+
+        /* 3. Estilos de formatação ABNT para os títulos */
+        .ck-content h1, .ck-content h2 {
+            font-weight: bold;
+            font-size: 12pt !important;
+            text-align: left;
+            text-indent: 0;
+            line-height: 1.5;
+            margin-bottom: 1em;
+        }
+        .ck-content h1 {
+            text-transform: uppercase;
+        }
+
+        .ck-content p {
+            text-align: justify;
+            text-indent: 1.25cm;
+            margin-bottom: 1em;
+        }
+        .ck-content blockquote p {
+             font-size: 10pt;
+             line-height: 1.0;
+             text-indent: 0;
+             text-align: justify;
+             margin-bottom: 0;
+        }
+        
+        .ck-content blockquote {
+            margin-left: 0;
             padding-left: 4cm;
             font-size: 10pt;
             line-height: 1.0;
+            text-indent: 0;
+            border-left: none;
+            margin-bottom: 1em;
         }
 
-
-        /* --- Estilos do Modo de Pré-Visualização --- */
-        .preview-container {
-            background-color: #525659; 
-            padding: 40px;
-            display: none;
-        }
-        .page-preview {
-            background: white;
-            width: 21cm;
-            height: 29.7cm;
-            margin: 20px auto;
-            box-shadow: 0 0 15px rgba(0,0,0,0.3);
-            padding: 3cm 2cm 2cm 3cm; /* Margens ABNT */
-            box-sizing: border-box;
-            overflow: hidden; 
-            font-size: 12pt; 
-            font-family: 'Arial', sans-serif; 
-            line-height: 1.5;
-        }
-        .page-preview p, .page-preview h1, .page-preview h2, .page-preview h3 { margin: 0; padding: 0; text-align: left; }
-        .page-preview h1 { font-weight: bold; text-transform: uppercase; }
-        .page-preview h2 { font-weight: bold; }
-        .page-preview .citacao-longa {
-            padding-left: 4cm; 
-            font-size: 10pt; 
-            line-height: 1.0;
-        }
-        /* Este estilo é crucial para o texto *dentro* da citação */
-        .page-preview .citacao-longa p {
-            font-size: 10pt; 
-            line-height: 1.0;
-        }
-
-        /* --- Estilos Comuns --- */
-        .ql-container.ql-snow { border: none !important; font-size: 12pt; font-family: 'Arial', sans-serif; }
-        .ql-editor { line-height: 1.5; padding: 0; }
-        
-        
         /* --- Controles do Formulário --- */
         .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         input[type="text"], select { width: 98%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ccc;}
@@ -112,155 +128,109 @@
             </div>
             <button id="btnAdicionar">Adicionar Referência</button>
             <div class="button-group">
-                <button id="btnVisualizar">Pré-visualizar Formatação</button>
                 <button id="btnFormatar">Formatar e Baixar .DOCX</button>
             </div>
         </div>
 
-        <div class="editor-container">
+        <div id="editor-container">
             <div id="editor"></div>
         </div>
-
-        <div id="previewContainer" class="preview-container">
-            </div>
     </div>
 
-    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
     <script>
-        // --- INICIALIZAÇÃO E CONTROLO DE MODO ---
-        const editorContainer = document.querySelector('.editor-container');
-        const previewContainer = document.getElementById('previewContainer');
-        const btnVisualizar = document.getElementById('btnVisualizar');
+        let editor;
 
-        const quill = new Quill('#editor', {
-            modules: {
-                toolbar: [
-                    [{ 'header': [1, 2, 3, false] }],
-                    ['bold', 'italic'],
-                    ['blockquote'] 
-                ]
-            },
-            theme: 'snow'
-        });
-        
-        const Blockquote = Quill.import('formats/blockquote');
-        Blockquote.tagName = 'blockquote';
-        Quill.register(Blockquote, true);
+        ClassicEditor
+            .create( document.querySelector( '#editor' ), {
+                toolbar: [ 'heading', '|', 'bold', 'italic', 'blockQuote', '|', 'undo', 'redo' ],
+                heading: {
+                    options: [
+                        { model: 'paragraph', title: 'Parágrafo', class: 'ck-heading_paragraph' },
+                        { model: 'heading1', view: 'h1', title: 'Título 1', class: 'ck-heading_heading1' },
+                        { model: 'heading2', view: 'h2', title: 'Título 2', class: 'ck-heading_heading2' }
+                    ]
+                }
+            } )
+            .then( newEditor => {
+                editor = newEditor;
+            } )
+            .catch( error => {
+                console.error( 'Erro ao iniciar o CKEditor 5:', error );
+            } );
 
-
-        btnVisualizar.addEventListener('click', () => {
-            if (editorContainer.style.display !== 'none') {
-                renderPreview();
-                editorContainer.style.display = 'none';
-                previewContainer.style.display = 'block';
-                btnVisualizar.textContent = 'Voltar a Editar';
-                btnVisualizar.style.backgroundColor = '#f39c12';
-            } else {
-                previewContainer.style.display = 'none';
-                editorContainer.style.display = 'block';
-                btnVisualizar.textContent = 'Pré-visualizar Formatação';
-                btnVisualizar.style.backgroundColor = '#1abc9c';
-            }
-        });
-
-        // --- MOTOR DE PRÉ-VISUALIZAÇÃO (LÓGICA CORRIGIDA PARA TÍTULOS E CITAÇÕES) ---
-        function renderPreview() {
-            previewContainer.innerHTML = ''; 
-            const delta = quill.getContents();
-            
-            let currentPage = createNewPreviewPage();
-            const pageClientHeight = currentPage.clientHeight;
-
-            delta.ops.forEach(op => {
-                if (typeof op.insert !== 'string') return;
-                
-                const attrs = op.attributes || {};
-                const lines = op.insert.split('\n');
-
-                lines.forEach((line, index) => {
-                    if (!line && index === lines.length - 1) return;
-
-                    // 1. Criar o elemento base (h1, h2, h3, or p)
-                    const tagName = attrs.header ? `h${attrs.header}` : 'p';
-                    const element = document.createElement(tagName);
-                    element.textContent = line || '\u00A0';
-
-                    // 2. Aplicar estilos inline (bold, italic)
-                    if (attrs.bold) element.style.fontWeight = 'bold';
-                    if (attrs.italic) element.style.fontStyle = 'italic';
-                    
-                    let elementToAppend;
-                    
-                    // 3. Verificar se precisa ser "embrulhado" por uma citação longa
-                    if (attrs.blockquote) {
-                        const quoteWrapper = document.createElement('div');
-                        quoteWrapper.className = 'citacao-longa';
-                        quoteWrapper.appendChild(element); // Coloca o <p> ou <h> DENTRO do wrapper
-                        elementToAppend = quoteWrapper;
-                    } else {
-                        elementToAppend = element; // É um elemento normal
-                    } 
-                    
-                    // 4. Adicionar à página e verificar overflow
-                    currentPage.appendChild(elementToAppend);
-
-                    if (currentPage.scrollHeight > pageClientHeight) {
-                        currentPage.removeChild(elementToAppend);
-                        currentPage = createNewPreviewPage();
-                        currentPage.appendChild(elementToAppend);
-                    }
-                });
-            });
-        }
-
-        function createNewPreviewPage() {
-            const pageDiv = document.createElement('div');
-            pageDiv.className = 'page-preview';
-            previewContainer.appendChild(pageDiv);
-            return pageDiv;
-        }
-
-        // --- LÓGICA DO FORMULÁRIO E ENVIO (Sem alterações, já está correta) ---
         document.getElementById('btnFormatar').addEventListener('click', async function() {
             this.innerText = 'Formatando...'; this.disabled = true;
-            const info_trabalho = {autor: document.getElementById('info_autor').value, titulo: document.getElementById('info_titulo').value, subtitulo: document.getElementById('info_subtitulo').value, instituicao: document.getElementById('info_instituicao').value, curso: document.getElementById('info_curso').value, cidade: document.getElementById('info_cidade').value, ano: document.getElementById('info_ano').value, orientador: document.getElementById('info_orientador').value};
+            
+            const editorData = editor.getData();
+            
+            const info_trabalho = {
+                autor: document.getElementById('info_autor').value,
+                titulo: document.getElementById('info_titulo').value,
+                subtitulo: document.getElementById('info_subtitulo').value,
+                instituicao: document.getElementById('info_instituicao').value,
+                curso: document.getElementById('info_curso').value,
+                cidade: document.getElementById('info_cidade').value,
+                ano: document.getElementById('info_ano').value,
+                orientador: document.getElementById('info_orientador').value
+            };
+
             const referencias = [];
             document.querySelectorAll('.referencia').forEach(bloco => {
                 const autor = bloco.querySelector('.autor').value; if (!autor) return;
-                const tipo = bloco.querySelector('.tipo-referencia').value; const referencia = { tipo: tipo, autor: autor, titulo: bloco.querySelector('.titulo').value, ano: bloco.querySelector('.ano').value };
-                if (tipo === 'livro') { referencia.cidade = bloco.querySelector('.cidade').value; referencia.editora = bloco.querySelector('.editora').value; } 
-                else if (tipo === 'site') { referencia.nome_site = bloco.querySelector('.nome_site').value; referencia.url = bloco.querySelector('.url').value; referencia.data_acesso = bloco.querySelector('.data_acesso').value; } 
-                else if (tipo === 'artigo') { referencia.nome_revista = bloco.querySelector('.nome_revista').value; referencia.volume = bloco.querySelector('.volume').value; referencia.numero = bloco.querySelector('.numero').value; referencia.paginas = bloco.querySelector('.paginas').value; }
+                const tipo = bloco.querySelector('.tipo-referencia').value;
+                const referencia = { tipo: tipo, autor: autor, titulo: bloco.querySelector('.titulo').value, ano: bloco.querySelector('.ano').value };
+                if (tipo === 'livro') {
+                    referencia.cidade = bloco.querySelector('.cidade').value;
+                    referencia.editora = bloco.querySelector('.editora').value;
+                } else if (tipo === 'site') {
+                    referencia.nome_site = bloco.querySelector('.nome_site').value;
+                    referencia.url = bloco.querySelector('.url').value;
+                    referencia.data_acesso = bloco.querySelector('.data_acesso').value;
+                } else if (tipo === 'artigo') {
+                    referencia.nome_revista = bloco.querySelector('.nome_revista').value;
+                    referencia.volume = bloco.querySelector('.volume').value;
+                    referencia.numero = bloco.querySelector('.numero').value;
+                    referencia.paginas = bloco.querySelector('.paginas').value;
+                }
                 referencias.push(referencia);
             });
 
-            const delta = quill.getContents();
             const dadosParaEnviar = { 
                 info_trabalho, 
-                texto_delta: delta, 
+                texto_html: editorData, 
                 referencias 
             };
 
             try {
                 const response = await fetch('http://127.0.0.1:5000/formatar', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosParaEnviar)
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dadosParaEnviar)
                 });
+
                 if (response.ok) {
-                    const blob = await response.blob(); const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = 'trabalho_formatado.docx';
-                    document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url);
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'trabalho_formatado.docx';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
                 } else {
-                    alert("Ocorreu um erro ao formatar o documento."); console.error("Erro do servidor:", await response.text());
+                    alert("Ocorreu um erro ao formatar o documento.");
+                    console.error("Erro do servidor:", await response.text());
                 }
             } catch (error) {
                 console.error('Erro de rede:', error);
                 alert("Não foi possível conectar ao servidor.");
             } finally {
-                this.innerText = 'Formatar e Baixar .DOCX'; this.disabled = false;
+                this.innerText = 'Formatar e Baixar .DOCX';
+                this.disabled = false;
             }
         });
-
-        // --- LÓGICA AUXILIAR PARA REFERÊNCIAS (Sem alterações) ---
+        
         function configurarLogicaReferencia(bloco) {
             const select = bloco.querySelector('.tipo-referencia');
             select.addEventListener('change', function() {

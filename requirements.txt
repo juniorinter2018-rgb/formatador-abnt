@@ -1,3 +1,5 @@
 Flask
 Flask-Cors
 python-docx
+beautifulsoup4
+lxml

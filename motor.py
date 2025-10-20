@@ -1,11 +1,22 @@
-# motor.py (Versão com parser de Delta para suportar formatação inline)
+# motor.py (Versão com formatação de referências ABNT corrigida)
 
 import docx
 from docx.shared import Cm, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import io
+from bs4 import BeautifulSoup, NavigableString
 
-# (função adicionar_paragrafo_pre_textual não muda)
+def formatar_autor_abnt(autor_str):
+    """Formata o nome do autor para o padrão ABNT (SOBRENOME, Nome)."""
+    if not autor_str or ',' not in autor_str:
+        return autor_str.upper() # Retorna em maiúsculas se o formato for inesperado
+    
+    partes = autor_str.split(',', 1)
+    sobrenome = partes[0].strip().upper()
+    # .title() capitaliza a primeira letra de cada nome (ex: "joão carlos" -> "João Carlos")
+    nome = partes[1].strip().title() 
+    return f"{sobrenome}, {nome}"
+
 def adicionar_paragrafo_pre_textual(document, text, space_before=0, font_size=12, is_bold=False, alignment=WD_ALIGN_PARAGRAPH.CENTER, is_upper=True):
     if text:
         p = document.add_paragraph()
@@ -16,54 +27,70 @@ def adicionar_paragrafo_pre_textual(document, text, space_before=0, font_size=12
         run.bold = is_bold
         p.alignment = alignment
 
-def aplicar_formatacao_paragrafo(p, attrs):
-    """Aplica formatação a nível de parágrafo (headers, blockquote, etc.)"""
-    if not attrs:
-        # Formatação de parágrafo padrão
-        p.paragraph_format.line_spacing = 1.5
-        p.paragraph_format.first_line_indent = Cm(1.25)
-        p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+def process_node_recursively(paragraph, node, is_bold=False, is_italic=False):
+    if isinstance(node, NavigableString):
+        text = str(node).replace('\xa0', ' ')
+        if text:
+            run = paragraph.add_run(text)
+            run.bold = is_bold
+            run.italic = is_italic
         return
 
-    if attrs.get('header'):
-        nivel = attrs.get('header')
-        # Tenta aplicar o estilo ao primeiro 'run' (pedaço de texto)
-        if p.runs:
-            run = p.runs[0] 
-            if nivel == 1:
-                run.text = run.text.upper()
-                run.bold = True
-            if nivel == 2:
-                run.bold = True
-        # (Nota: a numeração de seção 1.1, 1.2 etc. foi temporariamente removida
-        # para implementar esta correção e pode ser adicionada depois)
+    new_bold = is_bold or (node.name in ['strong', 'b'])
+    new_italic = is_italic or (node.name in ['em', 'i'])
     
-    elif attrs.get('blockquote'):
-        fmt = p.paragraph_format
-        fmt.left_indent = Cm(4)
-        fmt.line_spacing = 1.0
-        for run in p.runs: # Aplica fonte menor a todos os runs do parágrafo
-            run.font.size = Pt(10)
-    
-    else:
-        # Parágrafo padrão se nenhum atributo de bloco for encontrado
-        p.paragraph_format.line_spacing = 1.5
-        p.paragraph_format.first_line_indent = Cm(1.25)
-        p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    for child in node.children:
+        process_node_recursively(paragraph, child, new_bold, new_italic)
 
+
+def processar_html_para_docx(document, html_string):
+    soup = BeautifulSoup(html_string, 'lxml')
+    h1_counter = 0
+    h2_counter = 0
+
+    for element in soup.body.find_all(recursive=False):
+        if not element.get_text(strip=True):
+            continue
+
+        p = document.add_paragraph()
         
-def gerar_documento(info_trabalho, dados_delta, dados_referencias):
-    document = docx.Document()
+        if element.name == 'h1':
+            h1_counter += 1
+            h2_counter = 0
+            texto_titulo = f"{h1_counter} {element.get_text(strip=True).upper().replace('Â ', ' ')}"
+            run = p.add_run(texto_titulo)
+            run.bold = True
+        
+        elif element.name == 'h2':
+            h2_counter += 1
+            texto_titulo = f"{h1_counter}.{h2_counter} {element.get_text(strip=True).replace('Â ', ' ')}"
+            run = p.add_run(texto_titulo)
+            run.bold = True
 
-    # --- CONFIGURAÇÃO INICIAL DO DOCUMENTO ---
+        elif element.name == 'blockquote':
+            fmt = p.paragraph_format
+            fmt.left_indent = Cm(4)
+            fmt.line_spacing = 1.0
+            process_node_recursively(p, element)
+            for run in p.runs:
+                run.font.size = Pt(10)
+        
+        else:
+            fmt = p.paragraph_format
+            fmt.line_spacing = 1.5
+            fmt.first_line_indent = Cm(1.25)
+            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            process_node_recursively(p, element)
+
+
+def gerar_documento(info_trabalho, texto_html, dados_referencias):
+    document = docx.Document()
     style = document.styles['Normal']
     font = style.font; font.name = 'Arial'; font.size = Pt(12)
     for section in document.sections:
         section.top_margin = Cm(3); section.bottom_margin = Cm(2)
         section.left_margin = Cm(3); section.right_margin = Cm(2)
 
-    # --- ELEMENTOS PRÉ-TEXTUAIS (Capa e Folha de Rosto) ---
-    # (Esta seção não muda, pois usa info_trabalho)
     if info_trabalho.get('autor') and info_trabalho.get('titulo'):
         adicionar_paragrafo_pre_textual(document, info_trabalho.get('instituicao'))
         adicionar_paragrafo_pre_textual(document, info_trabalho.get('curso'), 12)
@@ -89,65 +116,10 @@ def gerar_documento(info_trabalho, dados_delta, dados_referencias):
         adicionar_paragrafo_pre_textual(document, info_trabalho.get('cidade'), 120)
         adicionar_paragrafo_pre_textual(document, info_trabalho.get('ano'), 12)
     
-    # --- NOVA LÓGICA DE PROCESSAMENTO (Lendo o Delta) ---
-    
-    # (A lógica de Sumário foi desativada pois depende da lógica antiga.
-    # Terá de ser reimplementada futuramente)
-    
-    # Adiciona o Corpo do Texto
     document.add_page_break()
-    
-    p = document.add_paragraph() # Inicia o primeiro parágrafo
-    paragrafo_attrs = {} # Atributos do parágrafo atual
+    processar_html_para_docx(document, texto_html)
 
-    if dados_delta and dados_delta.get('ops'):
-        for op in dados_delta.get('ops'):
-            if 'insert' in op:
-                texto = op['insert']
-                attrs = op.get('attributes', {})
-                
-                if '\n' in texto:
-                    # O op contém quebra de linha, o que define um parágrafo
-                    partes = texto.split('\n')
-                    
-                    # 1. Adiciona a primeira parte ao parágrafo atual
-                    if partes[0]:
-                        run = p.add_run(partes[0])
-                        run.bold = attrs.get('bold', False)
-                        run.italic = attrs.get('italic', False)
-                    
-                    # 2. Aplica a formatação de bloco ao parágrafo que acabamos de fechar
-                    paragrafo_attrs = attrs # Atributos de bloco estão no '\n'
-                    aplicar_formatacao_paragrafo(p, paragrafo_attrs)
-                    
-                    # 3. Cria novos parágrafos para as partes intermediárias (se houver)
-                    for i in range(1, len(partes) - 1):
-                        p = document.add_paragraph()
-                        if partes[i]:
-                            run = p.add_run(partes[i])
-                            run.bold = attrs.get('bold', False)
-                            run.italic = attrs.get('italic', False)
-                        aplicar_formatacao_paragrafo(p, paragrafo_attrs)
-                    
-                    # 4. Inicia o *próximo* parágrafo
-                    p = document.add_paragraph()
-                    if partes[-1]: # Se houver texto após a última quebra de linha
-                        run = p.add_run(partes[-1])
-                        run.bold = attrs.get('bold', False)
-                        run.italic = attrs.get('italic', False)
-
-                else:
-                    # O op é apenas texto inline (bold, italic, etc.)
-                    run = p.add_run(texto)
-                    run.bold = attrs.get('bold', False)
-                    run.italic = attrs.get('italic', False)
-
-    # Aplica formatação ao último parágrafo
-    aplicar_formatacao_paragrafo(p, paragrafo_attrs)
-
-
-    # --- Adiciona as Referências ---
-    # (Esta seção não muda, pois usa dados_referencias)
+    # --- SECÇÃO DE REFERÊNCIAS (COM FORMATAÇÃO ABNT CORRIGIDA) ---
     if dados_referencias:
         document.add_page_break()
         p_ref = document.add_paragraph('REFERÊNCIAS')
@@ -158,19 +130,33 @@ def gerar_documento(info_trabalho, dados_delta, dados_referencias):
         for ref in dados_referencias:
             p = document.add_paragraph()
             p.paragraph_format.line_spacing = 1.0
+            
+            autor_formatado = formatar_autor_abnt(ref.get('autor', ''))
+            # Capitaliza apenas a primeira letra do título
+            titulo = ref.get('titulo', '').strip()
+            titulo_capitalizado = titulo.capitalize() if titulo else ''
+            
             tipo = ref.get('tipo')
             if tipo == 'livro':
-                p.add_run(f"{ref.get('autor', '')}. ")
-                run_titulo = p.add_run(ref.get('titulo', '')); run_titulo.bold = True
-                p.add_run(f". {ref.get('cidade', '')}: {ref.get('editora', '')}, {ref.get('ano', '')}.")
-            elif tipo == 'site':
-                p.add_run(f"{ref.get('autor', '')}. {ref.get('titulo', '')}. {ref.get('nome_site', '')}, {ref.get('ano', '')}. Disponível em: <{ref.get('url', '')}>. Acesso em: {ref.get('data_acesso', '')}.")
-            elif tipo == 'artigo':
-                p.add_run(f"{ref.get('autor', '')}. {ref.get('titulo', '')}. ")
-                run_revista = p.add_run(ref.get('nome_revista', '')); run_revista.bold = True
-                p.add_run(f", v. {ref.get('volume', '')}, n. {ref.get('numero', '')}, {ref.get('paginas', '')}, {ref.get('ano', '')}.")
+                cidade = ref.get('cidade', '').strip().title()
+                editora = ref.get('editora', '').strip().title()
+                
+                p.add_run(f"{autor_formatado}. ")
+                run_titulo = p.add_run(titulo_capitalizado)
+                run_titulo.bold = True
+                p.add_run(f". {cidade}: {editora}, {ref.get('ano', '')}.")
 
-    # --- SALVA O DOCUMENTO EM MEMÓRIA ---
+            elif tipo == 'site':
+                nome_site = ref.get('nome_site', '')
+                p.add_run(f"{autor_formatado}. {titulo_capitalizado}. {nome_site}, {ref.get('ano', '')}. Disponível em: <{ref.get('url', '')}>. Acesso em: {ref.get('data_acesso', '')}.")
+            
+            elif tipo == 'artigo':
+                nome_revista = ref.get('nome_revista', '')
+                p.add_run(f"{autor_formatado}. {titulo_capitalizado}. ")
+                run_revista = p.add_run(nome_revista)
+                run_revista.bold = True
+                p.add_run(f", v. {ref.get('volume', '')}, n. {ref.get('numero', '')}, p. {ref.get('paginas', '')}, {ref.get('ano', '')}.")
+
     file_stream = io.BytesIO()
     document.save(file_stream)
     file_stream.seek(0)

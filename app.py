@@ -1,9 +1,9 @@
-# app.py (Com melhor diagnóstico de erros)
+# app.py (Final)
 
 from flask import Flask, request, send_file
 from flask_cors import CORS
 from motor import gerar_documento
-import traceback # Importamos esta biblioteca para ver o erro completo
+import traceback
 
 app = Flask(__name__)
 CORS(app)
@@ -18,12 +18,10 @@ def formatar():
         dados_json = request.get_json()
         
         info_trabalho = dados_json.get('info_trabalho', {})
-        # MODIFICADO: Recebe o 'texto_delta' (JSON) em vez de 'texto' (string)
-        texto_delta = dados_json.get('texto_delta', {}) 
+        texto_html = dados_json.get('texto_html', '') 
         lista_referencias = dados_json.get('referencias', [])
 
-        # Passa o delta para o motor
-        documento_em_memoria = gerar_documento(info_trabalho, texto_delta, lista_referencias)
+        documento_em_memoria = gerar_documento(info_trabalho, texto_html, lista_referencias)
         
         return send_file(
             documento_em_memoria,
@@ -32,7 +30,6 @@ def formatar():
             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
     except Exception as e:
-        # ESTA LINHA É A MUDANÇA IMPORTANTE
         print(f"Ocorreu um erro:\n{traceback.format_exc()}")
         return "Erro interno ao processar o documento", 500
 
