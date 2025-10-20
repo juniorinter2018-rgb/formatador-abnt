@@ -1,140 +1,151 @@
-# motor.py (v12 - Paginação Correta, Sumário Simples)
+# motor.py (Versão Definitiva com Lógica de Montagem Refatorada)
 
+import docx
+from docx.shared import Cm, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 import io
-import re
-from reportlab.lib import pagesizes
-from reportlab.lib.units import cm
-from reportlab.platypus import BaseDocTemplate, Paragraph, Spacer, PageBreak, Frame, PageTemplate, NextPageTemplate, KeepTogether
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
-from reportlab.pdfgen import canvas
-from reportlab.lib.colors import black
 
-# --- CONFIGURAÇÃO INICIAL E ESTILOS ---
-styles = getSampleStyleSheet()
-PAGE_WIDTH, PAGE_HEIGHT = pagesizes.A4
+def adicionar_paragrafo_pre_textual(document, text, space_before=0, font_size=12, is_bold=False, alignment=WD_ALIGN_PARAGRAPH.CENTER, is_upper=True):
+    if text:
+        p = document.add_paragraph()
+        p.paragraph_format.space_before = Pt(space_before)
+        run_text = text.upper() if is_upper else text
+        run = p.add_run(run_text)
+        run.font.size = Pt(font_size)
+        run.bold = is_bold
+        p.alignment = alignment
 
-# Estilos ABNT
-styles.add(ParagraphStyle(name='CorpoABNT', fontName='Times-Roman', fontSize=12, leading=18, alignment=TA_JUSTIFY, firstLineIndent=1.25*cm, spaceAfter=6))
-styles.add(ParagraphStyle(name='CitacaoLonga', fontName='Times-Roman', fontSize=10, leading=12, alignment=TA_JUSTIFY, leftIndent=4*cm, spaceBefore=6, spaceAfter=6))
-styles.add(ParagraphStyle(name='CapaTitulo', fontName='Times-Roman', fontSize=14, alignment=TA_CENTER, textColor=black))
-styles.add(ParagraphStyle(name='CapaTexto', fontName='Times-Roman', fontSize=12, alignment=TA_CENTER, textColor=black))
-styles.add(ParagraphStyle(name='FolhaRostoNota', fontName='Times-Roman', fontSize=10, leading=12, alignment=TA_LEFT, leftIndent=8*cm))
-styles.add(ParagraphStyle(name='Referencia', fontName='Times-Roman', fontSize=12, leading=14, alignment=TA_LEFT, spaceAfter=6))
-styles.add(ParagraphStyle(name='Titulo1', fontName='Times-Roman', fontSize=12, leading=18, spaceBefore=12, spaceAfter=6, keepWithNext=1, textColor=black))
-styles.add(ParagraphStyle(name='Titulo2', fontName='Times-Roman', fontSize=12, leading=18, spaceBefore=12, spaceAfter=6, keepWithNext=1, textColor=black))
-styles.add(ParagraphStyle(name='Titulo3', fontName='Times-Roman', fontSize=12, leading=18, spaceBefore=12, spaceAfter=6, keepWithNext=1, textColor=black))
-styles.add(ParagraphStyle(name='SumarioItem', fontName='Times-Roman', fontSize=12, leading=14, alignment=TA_LEFT))
-
-
-# --- FUNÇÕES DE DESENHO DE PÁGINA ---
-
-# Função para desenhar número (usando canvas.getPageNumber())
-def draw_page_number_textual(canvas, doc):
-    page_num = canvas.getPageNumber()
-    canvas.saveState(); canvas.setFont('Times-Roman', 10)
-    canvas.drawRightString(PAGE_WIDTH - 2*cm, PAGE_HEIGHT - 2*cm, str(page_num))
-    canvas.restoreState()
-
-# Função para não fazer nada
-def do_nothing_pretextual(canvas, doc):
-    pass
-
-# --- FUNÇÃO PRINCIPAL ---
 def gerar_documento(info_trabalho, dados_texto, dados_referencias):
-    buffer = io.BytesIO()
-    doc = BaseDocTemplate(buffer, pagesize=pagesizes.A4,
-                          rightMargin=2*cm, leftMargin=3*cm,
-                          topMargin=3*cm, bottomMargin=2*cm)
+    document = docx.Document()
 
-    # --- FRAMES E TEMPLATES ---
-    frame_padrao = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id='frame_normal')
-    template_pre = PageTemplate(id='pretextual', frames=[frame_padrao], onPage=do_nothing_pretextual)
-    template_corpo = PageTemplate(id='textual', frames=[frame_padrao], onPage=draw_page_number_textual)
-    doc.addPageTemplates([template_pre, template_corpo])
+    # --- CONFIGURAÇÃO INICIAL DO DOCUMENTO ---
+    style = document.styles['Normal']
+    font = style.font; font.name = 'Arial'; font.size = Pt(12)
+    for section in document.sections:
+        section.top_margin = Cm(3); section.bottom_margin = Cm(2)
+        section.left_margin = Cm(3); section.right_margin = Cm(2)
 
-    # --- MONTAGEM DA 'STORY' ---
-    story = []
-    story.append(NextPageTemplate('pretextual')) # Começa com pretextual
+    # --- ELEMENTOS PRÉ-TEXTUAIS (Capa e Folha de Rosto) ---
+    if info_trabalho.get('autor') and info_trabalho.get('titulo'):
+        adicionar_paragrafo_pre_textual(document, info_trabalho.get('instituicao'))
+        adicionar_paragrafo_pre_textual(document, info_trabalho.get('curso'), 12)
+        adicionar_paragrafo_pre_textual(document, info_trabalho.get('autor'), 120)
+        adicionar_paragrafo_pre_textual(document, info_trabalho.get('titulo'), 120, is_bold=True)
+        if info_trabalho.get('subtitulo'):
+            adicionar_paragrafo_pre_textual(document, info_trabalho.get('subtitulo'), 12)
+        adicionar_paragrafo_pre_textual(document, info_trabalho.get('cidade'), 150)
+        adicionar_paragrafo_pre_textual(document, info_trabalho.get('ano'), 12)
+        document.add_page_break()
+        adicionar_paragrafo_pre_textual(document, info_trabalho.get('autor'), 0)
+        adicionar_paragrafo_pre_textual(document, info_trabalho.get('titulo'), 120, is_bold=True)
+        if info_trabalho.get('subtitulo'):
+            adicionar_paragrafo_pre_textual(document, info_trabalho.get('subtitulo'), 12)
+        nota_curso = info_trabalho.get('curso', '[Nome do Curso]')
+        nota_instituicao = info_trabalho.get('instituicao', '[Nome da Instituição]')
+        nota = (f"Trabalho de Conclusão de Curso apresentado ao curso de {nota_curso} da {nota_instituicao}, "
+                f"como requisito parcial para a obtenção do título de Bacharel.")
+        p_nota = document.add_paragraph(); p_nota.paragraph_format.space_before = Pt(100)
+        p_nota.paragraph_format.left_indent = Cm(8); p_nota.add_run(nota)
+        if info_trabalho.get('orientador'):
+            adicionar_paragrafo_pre_textual(document, f"Orientador(a): {info_trabalho.get('orientador')}", 24, alignment=WD_ALIGN_PARAGRAPH.LEFT, is_upper=False)
+        adicionar_paragrafo_pre_textual(document, info_trabalho.get('cidade'), 120)
+        adicionar_paragrafo_pre_textual(document, info_trabalho.get('ano'), 12)
 
-    # --- ELEMENTOS PRÉ-TEXTUAIS ---
-    tem_elementos_pre_textuais = bool(info_trabalho.get('instituicao'))
-    if tem_elementos_pre_textuais:
-        # CAPA (Página 1)
-        capa_content = [ Spacer(1, 1*cm), Paragraph(info_trabalho.get('instituicao', '').upper(), styles['CapaTexto']), Spacer(1, 0.5*cm), Paragraph(info_trabalho.get('curso', '').upper(), styles['CapaTexto']), Spacer(1, 5*cm), Paragraph(info_trabalho.get('autor', '').upper(), styles['CapaTexto']), Spacer(1, 5*cm), Paragraph(f"<b>{info_trabalho.get('titulo', '').upper()}</b>", styles['CapaTitulo']) ]
-        if info_trabalho.get('subtitulo'): capa_content.extend([Spacer(1, 0.5*cm), Paragraph(info_trabalho.get('subtitulo', '').upper(), styles['CapaTexto'])])
-        capa_content.extend([ Spacer(1, 7*cm), Paragraph(info_trabalho.get('cidade', '').upper(), styles['CapaTexto']), Spacer(1, 0.5*cm), Paragraph(info_trabalho.get('ano', ''), styles['CapaTexto']) ])
-        story.append(KeepTogether(capa_content)); story.append(PageBreak())
+    # --- NOVA LÓGICA DE PROCESSAMENTO E MONTAGEM ---
+    
+    # 1. PRÉ-PROCESSAMENTO: Analisa o texto e prepara os blocos de conteúdo e o sumário
+    paragrafos = dados_texto.split('\n\n')
+    blocos_de_conteudo = []
+    entradas_sumario = []
+    contadores_secao = {'h1': 0, 'h2': 0, 'h3': 0}
 
-        # FOLHA DE ROSTO (Página 2)
-        rosto_content = [ Spacer(1, 1*cm), Paragraph(info_trabalho.get('autor', '').upper(), styles['CapaTexto']), Spacer(1, 4*cm), Paragraph(f"<b>{info_trabalho.get('titulo', '').upper()}</b>", styles['CapaTitulo']) ]
-        if info_trabalho.get('subtitulo'): rosto_content.extend([Spacer(1, 0.5*cm), Paragraph(info_trabalho.get('subtitulo', '').upper(), styles['CapaTexto'])])
-        nota_curso = info_trabalho.get('curso', '[Nome do Curso]'); nota_instituicao = info_trabalho.get('instituicao', '[Nome da Instituição]')
-        nota = f"Trabalho de Conclusão de Curso apresentado ao curso de {nota_curso} da {nota_instituicao}, como requisito parcial para a obtenção do título de Bacharel."
-        rosto_content.extend([Spacer(1, 4*cm), Paragraph(nota, styles['FolhaRostoNota'])])
-        if info_trabalho.get('orientador'): rosto_content.extend([Spacer(1, 2*cm), Paragraph(f"Orientador(a): {info_trabalho.get('orientador')}", styles['CapaTexto'])])
-        rosto_content.extend([ Spacer(1, 7*cm), Paragraph(info_trabalho.get('cidade', '').upper(), styles['CapaTexto']), Spacer(1, 0.5*cm), Paragraph(info_trabalho.get('ano', ''), styles['CapaTexto']) ])
-        story.append(KeepTogether(rosto_content)); story.append(PageBreak())
+    for p_text in paragrafos:
+        p_text = p_text.strip()
+        if not p_text: continue
 
-    # --- PROCESSAMENTO DO CORPO ---
-    corpo_story = []; entradas_sumario = []; contadores_secao = {'h1': 0, 'h2': 0, 'h3': 0}
-    linhas_texto = re.split(r'\n\s*\n+', dados_texto.strip())
-    for linha in linhas_texto:
-        linha = linha.strip(); paragrafo_obj = None; titulo_formatado = ""
-        if not linha: continue
-        if linha.startswith('### '): contadores_secao['h3'] += 1; texto_limpo = linha.replace('###', '').strip().capitalize(); titulo_formatado = f"{contadores_secao['h1']}.{contadores_secao['h2']}.{contadores_secao['h3']} {texto_limpo}"; paragrafo_obj = Paragraph(titulo_formatado, styles['Titulo3'])
-        elif linha.startswith('## '): contadores_secao['h2'] += 1; contadores_secao['h3'] = 0; texto_limpo = linha.replace('##', '').strip().capitalize(); titulo_formatado = f"{contadores_secao['h1']}.{contadores_secao['h2']} {texto_limpo}"; paragrafo_obj = Paragraph(f"<b>{titulo_formatado}</b>", styles['Titulo2'])
-        elif linha.startswith('# '): contadores_secao['h1'] += 1; contadores_secao['h2'] = 0; contadores_secao['h3'] = 0; texto_limpo = linha.replace('#', '').strip().upper(); titulo_formatado = f"{contadores_secao['h1']} {texto_limpo}"; paragrafo_obj = Paragraph(f"<b>{titulo_formatado}</b>", styles['Titulo1'])
-        elif linha.startswith('[clonga]'):
-            match_clonga = re.match(r'\[clonga\](.*?)\[fimclonga\]\s*\((.*?)\)', linha, flags=re.DOTALL | re.IGNORECASE)
-            if match_clonga:
-                texto_citacao = match_clonga.group(1).strip(); autor_ano_pagina = match_clonga.group(2).strip()
-                autor_match = re.match(r'([^,]+),\s*(\d{4}),\s*p\.\s*(\d+)', autor_ano_pagina, re.IGNORECASE)
-                autor_formatado = f"({autor_match.group(1).strip().capitalize()}, {autor_match.group(2)}, p. {autor_match.group(3)})" if autor_match else f"({autor_ano_pagina.upper()})"
-                corpo_story.append(Paragraph(texto_citacao, styles['CitacaoLonga'])); corpo_story.append(Paragraph(autor_formatado, styles['CitacaoLonga']))
-            else: linha = re.sub(r'\[c:\s*([^,]+),\s*(\d{4}),\s*p\.\s*(\d+)\s*\]', lambda m: f" ({m.group(1).strip().capitalize()}, {m.group(2)}, p. {m.group(3)})", linha, flags=re.IGNORECASE); paragrafo_obj = Paragraph(linha, styles['CorpoABNT'])
-        else: linha = re.sub(r'\[c:\s*([^,]+),\s*(\d{4}),\s*p\.\s*(\d+)\s*\]', lambda m: f" ({m.group(1).strip().capitalize()}, {m.group(2)}, p. {m.group(3)})", linha, flags=re.IGNORECASE); paragrafo_obj = Paragraph(linha, styles['CorpoABNT'])
-        if paragrafo_obj: corpo_story.append(paragrafo_obj)
-        if titulo_formatado: entradas_sumario.append(titulo_formatado)
+        if p_text.startswith('#'):
+            texto_base = p_text.lstrip('# ').strip()
+            nivel = p_text.count('#')
+            texto_formatado = ""
+            if nivel == 1:
+                contadores_secao['h1'] += 1; contadores_secao['h2'] = 0; contadores_secao['h3'] = 0
+                texto_formatado = f"{contadores_secao['h1']} {texto_base.upper()}"
+            elif nivel == 2:
+                contadores_secao['h2'] += 1; contadores_secao['h3'] = 0
+                texto_formatado = f"{contadores_secao['h1']}.{contadores_secao['h2']} {texto_base}"
+            elif nivel == 3:
+                contadores_secao['h3'] += 1
+                texto_formatado = f"{contadores_secao['h1']}.{contadores_secao['h2']}.{contadores_secao['h3']} {texto_base}"
+            
+            if texto_base:
+                entradas_sumario.append(texto_formatado)
+                blocos_de_conteudo.append({'type': f'h{nivel}', 'text': texto_formatado})
+        elif p_text.startswith('[clonga]'):
+            texto_citacao = p_text.replace('[clonga]', '').replace('[fimclonga]', '').strip()
+            blocos_de_conteudo.append({'type': 'clonga', 'text': texto_citacao})
+        else:
+            blocos_de_conteudo.append({'type': 'p', 'text': p_text})
 
-    # --- SUMÁRIO (Página 3 - Versão Simples com Parágrafos) ---
+    # 2. MONTAGEM SEQUENCIAL GARANTIDA
+    
+    # Adiciona o Sumário
     if entradas_sumario:
-        story.append(Paragraph("<b>SUMÁRIO</b>", styles['CapaTitulo'])); story.append(Spacer(1, 1*cm))
+        document.add_page_break()
+        p_sumario = document.add_paragraph("SUMÁRIO")
+        if p_sumario.runs: p_sumario.runs[0].bold = True
+        p_sumario.alignment = WD_ALIGN_PARAGRAPH.CENTER
         for entrada in entradas_sumario:
-            story.append(Paragraph(entrada, styles['SumarioItem'])) # Adiciona como parágrafo simples
+            document.add_paragraph(entrada)
+    
+    # Adiciona o Corpo do Texto
+    if blocos_de_conteudo:
+        document.add_page_break()
+        for bloco in blocos_de_conteudo:
+            tipo = bloco['type']
+            texto = bloco['text']
+            
+            p = document.add_paragraph()
+            if tipo.startswith('h'): # Se for h1, h2, h3
+                run = p.add_run(texto)
+                if tipo in ['h1', 'h2']:
+                    run.bold = True
+            elif tipo == 'clonga':
+                p.text = texto
+                fmt = p.paragraph_format
+                fmt.left_indent = Cm(4); fmt.line_spacing = 1.0
+                if p.runs: p.runs[0].font.size = Pt(10)
+            elif tipo == 'p':
+                p.text = texto
+                fmt = p.paragraph_format
+                fmt.line_spacing = 1.5
+                fmt.first_line_indent = Cm(1.25)
+                fmt.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
-        # Define template da próxima página ANTES da quebra
-        story.append(NextPageTemplate('textual'))
-        story.append(PageBreak()) # Quebra para a página 4
-
-    # --- CORPO (A partir da Página 4) ---
-    story.extend(corpo_story)
-
-    # --- REFERÊNCIAS ---
+    # Adiciona as Referências
     if dados_referencias:
-        story.append(PageBreak()); story.append(Paragraph("<b>REFERÊNCIAS</b>", styles['Titulo1'])); story.append(Spacer(1, 0.5*cm))
+        document.add_page_break()
+        p_ref = document.add_paragraph('REFERÊNCIAS')
+        if p_ref.runs: p_ref.runs[0].bold = True
+        p_ref.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        dados_referencias.sort(key=lambda x: x.get('autor', ''))
         for ref in dados_referencias:
-            texto_ref = ""; tipo = ref.get('tipo'); autor = ref.get('autor', ''); titulo = ref.get('titulo', ''); ano = ref.get('ano', '')
-            if tipo == 'livro': cidade = ref.get('cidade', ''); editora = ref.get('editora', ''); texto_ref = f"{autor}. <b>{titulo}</b>. {cidade}: {editora}, {ano}."
-            elif tipo == 'site': nome_site = ref.get('nome_site', ''); url = ref.get('url', ''); data_acesso = ref.get('data_acesso', ''); texto_ref = f"{autor}. {titulo}. {nome_site}, {ano}. Disponível em: &lt;{url}&gt;. Acesso em: {data_acesso}."
-            elif tipo == 'artigo': revista = ref.get('nome_revista', ''); volume = ref.get('volume', ''); numero = ref.get('numero', ''); paginas = ref.get('paginas', ''); texto_ref = f"{autor}. {titulo}. <b>{revista}</b>, v. {volume}, n. {numero}, {paginas}, {ano}."
-            story.append(Paragraph(texto_ref, styles['Referencia']))
+            p = document.add_paragraph()
+            p.paragraph_format.line_spacing = 1.0
+            tipo = ref.get('tipo')
+            if tipo == 'livro':
+                p.add_run(f"{ref.get('autor', '')}. ")
+                run_titulo = p.add_run(ref.get('titulo', '')); run_titulo.bold = True
+                p.add_run(f". {ref.get('cidade', '')}: {ref.get('editora', '')}, {ref.get('ano', '')}.")
+            elif tipo == 'site':
+                p.add_run(f"{ref.get('autor', '')}. {ref.get('titulo', '')}. {ref.get('nome_site', '')}, {ref.get('ano', '')}. Disponível em: <{ref.get('url', '')}>. Acesso em: {ref.get('data_acesso', '')}.")
+            elif tipo == 'artigo':
+                p.add_run(f"{ref.get('autor', '')}. {ref.get('titulo', '')}. ")
+                run_revista = p.add_run(ref.get('nome_revista', '')); run_revista.bold = True
+                p.add_run(f", v. {ref.get('volume', '')}, n. {ref.get('numero', '')}, {ref.get('paginas', '')}, {ref.get('ano', '')}.")
 
-    # Constrói o PDF
-    doc.build(story)
-    buffer.seek(0)
-    return buffer
-
-# --- BLOCO DE TESTE ---
-if __name__ == "__main__":
-    # Mantendo v12 no nome para indicar a versão funcional que estamos restaurando
-    print("--- Iniciando teste do motor.py (v12 - Paginação OK, Sumário Simples) ---")
-    info_trabalho_teste = { 'autor': 'Junio da Silva', 'titulo': 'Desenvolvimento de um Formatador ABNT Automatizado', 'subtitulo': 'Um Estudo de Caso com Python e ReportLab', 'instituicao': 'Universidade Federal da Inovação', 'curso': 'Ciência da Computação', 'cidade': 'São Paulo', 'ano': '2025', 'orientador': 'Prof. Dr. Alan Turing' }
-    dados_texto_teste = """# INTRODUÇÃO\n\nA automação de tarefas repetitivas representa um avanço significativo na otimização de processos.\n\nA formatação de documentos acadêmicos é uma atividade que consome tempo e exige atenção a detalhes. Como aponta a teoria, "a automação libera o potencial humano para tarefas mais criativas" [c: SANTOS, 2024, p. 15].\n\n## OBJETIVOS\n\n[clonga]O objetivo principal deste trabalho é desenvolver uma ferramenta robusta e de fácil utilização que possa ser amplamente adotada pela comunidade acadêmica, reduzindo significativamente o tempo gasto com formatação manual e aumentando a conformidade dos trabalhos com as normas técnicas vigentes.[fimclonga] (PEREIRA, 2023, p. 78)\n\nIsso é alcançado através de um desenvolvimento incremental.\n\n### OBJETIVO ESPECÍFICO 1\n\nDetalhes do objetivo 1.\n\n### OBJETIVO ESPECÍFICO 2\n\nDetalhes do objetivo 2.\n\n# METODOLOGIA\n\nA metodologia adotada foi o desenvolvimento ágil, focando em entregas contínuas de valor.\n"""
-    dados_referencias_teste = [ { "tipo": "livro", "autor": "ASSIS, Machado de", "titulo": "Dom Casmurro", "cidade": "Rio de Janeiro", "editora": "Editora Clássicos", "ano": "1899" }, { "tipo": "artigo", "autor": "TURING, Alan", "titulo": "Computing Machinery and Intelligence", "nome_revista": "Mind", "volume": "LIX", "numero": "236", "paginas": "p. 433-460", "ano": "1950" } ]
-    print("Gerando documento...")
-    pdf_em_memoria = gerar_documento(info_trabalho_teste, dados_texto_teste, dados_referencias_teste)
-    # Salvar como v12 para clareza
-    with open("TESTE_SAIDA_v12_restaurado.pdf", "wb") as f: f.write(pdf_em_memoria.getbuffer())
-    print("\n--- Teste Concluído! ---")
-    print("Arquivo 'TESTE_SAIDA_v12_restaurado.pdf' foi gerado.")
+    # --- SALVA O DOCUMENTO EM MEMÓRIA ---
+    file_stream = io.BytesIO()
+    document.save(file_stream)
+    file_stream.seek(0)
+    return file_stream
