@@ -1,10 +1,11 @@
-# motor.py (Versão Definitiva com Lógica de Montagem Refatorada)
+# motor.py (Versão com parser de Delta para suportar formatação inline)
 
 import docx
 from docx.shared import Cm, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import io
 
+# (função adicionar_paragrafo_pre_textual não muda)
 def adicionar_paragrafo_pre_textual(document, text, space_before=0, font_size=12, is_bold=False, alignment=WD_ALIGN_PARAGRAPH.CENTER, is_upper=True):
     if text:
         p = document.add_paragraph()
@@ -15,7 +16,43 @@ def adicionar_paragrafo_pre_textual(document, text, space_before=0, font_size=12
         run.bold = is_bold
         p.alignment = alignment
 
-def gerar_documento(info_trabalho, dados_texto, dados_referencias):
+def aplicar_formatacao_paragrafo(p, attrs):
+    """Aplica formatação a nível de parágrafo (headers, blockquote, etc.)"""
+    if not attrs:
+        # Formatação de parágrafo padrão
+        p.paragraph_format.line_spacing = 1.5
+        p.paragraph_format.first_line_indent = Cm(1.25)
+        p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        return
+
+    if attrs.get('header'):
+        nivel = attrs.get('header')
+        # Tenta aplicar o estilo ao primeiro 'run' (pedaço de texto)
+        if p.runs:
+            run = p.runs[0] 
+            if nivel == 1:
+                run.text = run.text.upper()
+                run.bold = True
+            if nivel == 2:
+                run.bold = True
+        # (Nota: a numeração de seção 1.1, 1.2 etc. foi temporariamente removida
+        # para implementar esta correção e pode ser adicionada depois)
+    
+    elif attrs.get('blockquote'):
+        fmt = p.paragraph_format
+        fmt.left_indent = Cm(4)
+        fmt.line_spacing = 1.0
+        for run in p.runs: # Aplica fonte menor a todos os runs do parágrafo
+            run.font.size = Pt(10)
+    
+    else:
+        # Parágrafo padrão se nenhum atributo de bloco for encontrado
+        p.paragraph_format.line_spacing = 1.5
+        p.paragraph_format.first_line_indent = Cm(1.25)
+        p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+        
+def gerar_documento(info_trabalho, dados_delta, dados_referencias):
     document = docx.Document()
 
     # --- CONFIGURAÇÃO INICIAL DO DOCUMENTO ---
@@ -26,6 +63,7 @@ def gerar_documento(info_trabalho, dados_texto, dados_referencias):
         section.left_margin = Cm(3); section.right_margin = Cm(2)
 
     # --- ELEMENTOS PRÉ-TEXTUAIS (Capa e Folha de Rosto) ---
+    # (Esta seção não muda, pois usa info_trabalho)
     if info_trabalho.get('autor') and info_trabalho.get('titulo'):
         adicionar_paragrafo_pre_textual(document, info_trabalho.get('instituicao'))
         adicionar_paragrafo_pre_textual(document, info_trabalho.get('curso'), 12)
@@ -50,78 +88,66 @@ def gerar_documento(info_trabalho, dados_texto, dados_referencias):
             adicionar_paragrafo_pre_textual(document, f"Orientador(a): {info_trabalho.get('orientador')}", 24, alignment=WD_ALIGN_PARAGRAPH.LEFT, is_upper=False)
         adicionar_paragrafo_pre_textual(document, info_trabalho.get('cidade'), 120)
         adicionar_paragrafo_pre_textual(document, info_trabalho.get('ano'), 12)
-
-    # --- NOVA LÓGICA DE PROCESSAMENTO E MONTAGEM ---
     
-    # 1. PRÉ-PROCESSAMENTO: Analisa o texto e prepara os blocos de conteúdo e o sumário
-    paragrafos = dados_texto.split('\n\n')
-    blocos_de_conteudo = []
-    entradas_sumario = []
-    contadores_secao = {'h1': 0, 'h2': 0, 'h3': 0}
-
-    for p_text in paragrafos:
-        p_text = p_text.strip()
-        if not p_text: continue
-
-        if p_text.startswith('#'):
-            texto_base = p_text.lstrip('# ').strip()
-            nivel = p_text.count('#')
-            texto_formatado = ""
-            if nivel == 1:
-                contadores_secao['h1'] += 1; contadores_secao['h2'] = 0; contadores_secao['h3'] = 0
-                texto_formatado = f"{contadores_secao['h1']} {texto_base.upper()}"
-            elif nivel == 2:
-                contadores_secao['h2'] += 1; contadores_secao['h3'] = 0
-                texto_formatado = f"{contadores_secao['h1']}.{contadores_secao['h2']} {texto_base}"
-            elif nivel == 3:
-                contadores_secao['h3'] += 1
-                texto_formatado = f"{contadores_secao['h1']}.{contadores_secao['h2']}.{contadores_secao['h3']} {texto_base}"
-            
-            if texto_base:
-                entradas_sumario.append(texto_formatado)
-                blocos_de_conteudo.append({'type': f'h{nivel}', 'text': texto_formatado})
-        elif p_text.startswith('[clonga]'):
-            texto_citacao = p_text.replace('[clonga]', '').replace('[fimclonga]', '').strip()
-            blocos_de_conteudo.append({'type': 'clonga', 'text': texto_citacao})
-        else:
-            blocos_de_conteudo.append({'type': 'p', 'text': p_text})
-
-    # 2. MONTAGEM SEQUENCIAL GARANTIDA
+    # --- NOVA LÓGICA DE PROCESSAMENTO (Lendo o Delta) ---
     
-    # Adiciona o Sumário
-    if entradas_sumario:
-        document.add_page_break()
-        p_sumario = document.add_paragraph("SUMÁRIO")
-        if p_sumario.runs: p_sumario.runs[0].bold = True
-        p_sumario.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        for entrada in entradas_sumario:
-            document.add_paragraph(entrada)
+    # (A lógica de Sumário foi desativada pois depende da lógica antiga.
+    # Terá de ser reimplementada futuramente)
     
     # Adiciona o Corpo do Texto
-    if blocos_de_conteudo:
-        document.add_page_break()
-        for bloco in blocos_de_conteudo:
-            tipo = bloco['type']
-            texto = bloco['text']
-            
-            p = document.add_paragraph()
-            if tipo.startswith('h'): # Se for h1, h2, h3
-                run = p.add_run(texto)
-                if tipo in ['h1', 'h2']:
-                    run.bold = True
-            elif tipo == 'clonga':
-                p.text = texto
-                fmt = p.paragraph_format
-                fmt.left_indent = Cm(4); fmt.line_spacing = 1.0
-                if p.runs: p.runs[0].font.size = Pt(10)
-            elif tipo == 'p':
-                p.text = texto
-                fmt = p.paragraph_format
-                fmt.line_spacing = 1.5
-                fmt.first_line_indent = Cm(1.25)
-                fmt.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    document.add_page_break()
+    
+    p = document.add_paragraph() # Inicia o primeiro parágrafo
+    paragrafo_attrs = {} # Atributos do parágrafo atual
 
-    # Adiciona as Referências
+    if dados_delta and dados_delta.get('ops'):
+        for op in dados_delta.get('ops'):
+            if 'insert' in op:
+                texto = op['insert']
+                attrs = op.get('attributes', {})
+                
+                if '\n' in texto:
+                    # O op contém quebra de linha, o que define um parágrafo
+                    partes = texto.split('\n')
+                    
+                    # 1. Adiciona a primeira parte ao parágrafo atual
+                    if partes[0]:
+                        run = p.add_run(partes[0])
+                        run.bold = attrs.get('bold', False)
+                        run.italic = attrs.get('italic', False)
+                    
+                    # 2. Aplica a formatação de bloco ao parágrafo que acabamos de fechar
+                    paragrafo_attrs = attrs # Atributos de bloco estão no '\n'
+                    aplicar_formatacao_paragrafo(p, paragrafo_attrs)
+                    
+                    # 3. Cria novos parágrafos para as partes intermediárias (se houver)
+                    for i in range(1, len(partes) - 1):
+                        p = document.add_paragraph()
+                        if partes[i]:
+                            run = p.add_run(partes[i])
+                            run.bold = attrs.get('bold', False)
+                            run.italic = attrs.get('italic', False)
+                        aplicar_formatacao_paragrafo(p, paragrafo_attrs)
+                    
+                    # 4. Inicia o *próximo* parágrafo
+                    p = document.add_paragraph()
+                    if partes[-1]: # Se houver texto após a última quebra de linha
+                        run = p.add_run(partes[-1])
+                        run.bold = attrs.get('bold', False)
+                        run.italic = attrs.get('italic', False)
+
+                else:
+                    # O op é apenas texto inline (bold, italic, etc.)
+                    run = p.add_run(texto)
+                    run.bold = attrs.get('bold', False)
+                    run.italic = attrs.get('italic', False)
+
+    # Aplica formatação ao último parágrafo
+    aplicar_formatacao_paragrafo(p, paragrafo_attrs)
+
+
+    # --- Adiciona as Referências ---
+    # (Esta seção não muda, pois usa dados_referencias)
     if dados_referencias:
         document.add_page_break()
         p_ref = document.add_paragraph('REFERÊNCIAS')

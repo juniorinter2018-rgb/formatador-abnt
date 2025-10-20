@@ -18,10 +18,12 @@ def formatar():
         dados_json = request.get_json()
         
         info_trabalho = dados_json.get('info_trabalho', {})
-        texto_trabalho = dados_json.get('texto', '') 
+        # MODIFICADO: Recebe o 'texto_delta' (JSON) em vez de 'texto' (string)
+        texto_delta = dados_json.get('texto_delta', {}) 
         lista_referencias = dados_json.get('referencias', [])
 
-        documento_em_memoria = gerar_documento(info_trabalho, texto_trabalho, lista_referencias)
+        # Passa o delta para o motor
+        documento_em_memoria = gerar_documento(info_trabalho, texto_delta, lista_referencias)
         
         return send_file(
             documento_em_memoria,
