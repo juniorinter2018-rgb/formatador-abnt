@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Formatador ABNT com CKEditor</title>
     <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+    <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/translations/pt-br.js"></script>
 
     <style>
         body { background-color: #f0f2f5; font-family: 'Arial', sans-serif; margin: 0; padding: 20px 0; }
@@ -25,76 +26,40 @@
             padding: 1cm;
             box-sizing: border-box;
         }
-
-        /* --- ESTILOS WYSIWYG ABNT COM NUMERAÇÃO AUTOMÁTICA --- */
-
+        
         .ck-editor__editable_inline {
-            width: 100%;
-            min-height: 27.7cm;
-            padding: 3cm 2cm 2cm 3cm !important;
-            box-sizing: border-box;
-            font-family: 'Arial', sans-serif;
-            font-size: 12pt;
-            line-height: 1.5;
+            width: 100%; min-height: 27.7cm; padding: 3cm 2cm 2cm 3cm !important;
+            box-sizing: border-box; font-family: 'Arial', sans-serif; font-size: 12pt; line-height: 1.5;
         }
-        
-        /* 1. Prepara o editor para contar os títulos */
-        .ck-content {
-            counter-reset: h1; /* Inicia o contador de Título 1 */
-        }
-        
-        .ck-content h1 {
-            counter-reset: h2; /* Reinicia o contador de Título 2 sempre que um Título 1 aparece */
-        }
-
-        /* 2. Adiciona os números antes dos títulos usando CSS */
-        .ck-content h1::before {
-            counter-increment: h1;
-            content: counter(h1) " "; /* Exibe o número e um espaço */
-        }
-
-        .ck-content h2::before {
-            counter-increment: h2;
-            content: counter(h1) "." counter(h2) " "; /* Exibe "1.1 ", "1.2 ", etc. */
-        }
-
-        /* 3. Estilos de formatação ABNT para os títulos */
         .ck-content h1, .ck-content h2 {
-            font-weight: bold;
-            font-size: 12pt !important;
-            text-align: left;
-            text-indent: 0;
-            line-height: 1.5;
-            margin-bottom: 1em;
+            font-weight: bold; font-size: 12pt !important; text-align: left; text-indent: 0;
+            line-height: 1.5; margin-bottom: 1em;
         }
-        .ck-content h1 {
-            text-transform: uppercase;
-        }
-
-        .ck-content p {
-            text-align: justify;
-            text-indent: 1.25cm;
-            margin-bottom: 1em;
-        }
-        .ck-content blockquote p {
-             font-size: 10pt;
-             line-height: 1.0;
-             text-indent: 0;
-             text-align: justify;
-             margin-bottom: 0;
+        .ck-content h1 { text-transform: uppercase; }
+        .ck-content p { text-align: justify; text-indent: 1.25cm; margin-bottom: 1em; }
+        .ck-content blockquote p { font-size: 10pt; line-height: 1.0; text-indent: 0; text-align: justify; margin-bottom: 0; }
+        .ck-content blockquote {
+            margin-left: 0; padding-left: 4cm; font-size: 10pt; line-height: 1.0;
+            text-indent: 0; border-left: none; margin-bottom: 1em;
         }
         
-        .ck-content blockquote {
-            margin-left: 0;
-            padding-left: 4cm;
-            font-size: 10pt;
-            line-height: 1.0;
-            text-indent: 0;
-            border-left: none;
-            margin-bottom: 1em;
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+            overflow: auto; background-color: rgba(0,0,0,0.4);
         }
+        .modal-content {
+            background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888;
+            width: 80%; max-width: 400px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .modal-content h3 { margin-top: 0; }
+        .modal-content label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .modal-content input[type="text"] { width: 95%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #ccc; }
+        .modal-content input[type="checkbox"] { margin-right: 10px; }
+        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
 
-        /* --- Controles do Formulário --- */
+        .ck-button.ck-button-citar { color: #333; }
+        .ck-button.ck-button-citar:hover { background: #e0e0e0; }
+
         .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         input[type="text"], select { width: 98%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ccc;}
         .referencia { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
@@ -102,6 +67,24 @@
     </style>
 </head>
 <body>
+    <div id="citation-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h3>Inserir Citação</h3>
+            <label for="citation-author">Sobrenome do Autor:</label>
+            <input type="text" id="citation-author" placeholder="Ex: Silva">
+            <label for="citation-year">Ano:</label>
+            <input type="text" id="citation-year" placeholder="Ex: 2024">
+            <label for="citation-page">Página (opcional):</label>
+            <input type="text" id="citation-page" placeholder="Ex: 42">
+            <div>
+                <input type="checkbox" id="citation-direct">
+                <label for="citation-direct" style="display: inline;">É citação direta (curta)?</label>
+            </div>
+            <button id="insert-citation-btn" style="margin-top: 20px;">Inserir</button>
+        </div>
+    </div>
+
     <div class="container">
         <div class="config-panel">
             <h1>Formatador ABNT</h1>
@@ -142,6 +125,7 @@
 
         ClassicEditor
             .create( document.querySelector( '#editor' ), {
+                language: 'pt-br',
                 toolbar: [ 'heading', '|', 'bold', 'italic', 'blockQuote', '|', 'undo', 'redo' ],
                 heading: {
                     options: [
@@ -153,81 +137,136 @@
             } )
             .then( newEditor => {
                 editor = newEditor;
+                
+                const toolbarElement = editor.ui.view.toolbar.element;
+                const separator = document.createElement('span');
+                separator.className = 'ck-toolbar__separator';
+                toolbarElement.appendChild(separator);
+
+                const citationButton = document.createElement('button');
+                citationButton.className = 'ck-button ck-button-citar';
+                citationButton.setAttribute('type', 'button');
+                citationButton.innerHTML = 'Citar';
+                citationButton.title = 'Inserir Citação (ABNT)';
+
+                citationButton.addEventListener('click', () => {
+                    document.getElementById('citation-modal').style.display = 'block';
+                });
+
+                toolbarElement.appendChild(citationButton);
             } )
             .catch( error => {
                 console.error( 'Erro ao iniciar o CKEditor 5:', error );
             } );
+            
+        const modal = document.getElementById('citation-modal');
+        const closeBtn = document.querySelector('.close-button');
+        const insertBtn = document.getElementById('insert-citation-btn');
+
+        closeBtn.onclick = () => { modal.style.display = 'none'; };
+        window.onclick = (event) => {
+            if (event.target == modal) modal.style.display = 'none';
+        };
+
+        // --- LÓGICA DE CITAÇÃO CORRIGIDA ---
+        insertBtn.addEventListener('click', () => {
+            const author = document.getElementById('citation-author').value.toUpperCase();
+            const year = document.getElementById('citation-year').value;
+            const page = document.getElementById('citation-page').value;
+            const isDirect = document.getElementById('citation-direct').checked;
+
+            if (!author || !year) {
+                alert('Por favor, preencha o Sobrenome do Autor e o Ano.');
+                return;
+            }
+
+            // Devolve o foco ao editor para garantir que a seleção está ativa
+            editor.editing.view.focus();
+
+            const model = editor.model;
+            const selection = model.document.selection;
+            const selectedFragment = model.getSelectedContent(selection);
+
+            // Função recursiva e segura para extrair texto plano do conteúdo selecionado
+            function getTextFromFragment(fragment) {
+                let text = '';
+                for (const child of fragment.getChildren()) {
+                    if (child.is('text') || child.is('textProxy')) {
+                        text += child.data;
+                    } else if (child.is('element') && child.childCount > 0) {
+                        text += getTextFromFragment(child); // Recurso para elementos aninhados
+                    }
+                }
+                return text;
+            }
+            const plainText = getTextFromFragment(selectedFragment);
+
+            let citationText = '';
+            if (isDirect) {
+                if (!page) {
+                    alert('Citações diretas exigem um número de página.');
+                    return;
+                }
+                if (plainText.length === 0) {
+                    alert('Para citação direta, por favor, selecione o texto que deseja citar.');
+                    return;
+                }
+                citationText = `"${plainText}" (${author}, ${year}, p. ${page})`;
+            } else {
+                citationText = ` (${author}, ${year})`;
+            }
+
+            // Usa a API do modelo para inserir o texto, que é a forma mais segura
+            model.change(writer => {
+                // Se houver texto selecionado (citação direta), substitui-o.
+                // Caso contrário, insere no cursor.
+                if (!selection.isCollapsed) {
+                    writer.insertText(citationText, selection.getFirstRange());
+                } else {
+                    writer.insertText(citationText, selection.getFirstPosition());
+                }
+            });
+
+            // Limpa e fecha o modal
+            document.getElementById('citation-author').value = '';
+            document.getElementById('citation-year').value = '';
+            document.getElementById('citation-page').value = '';
+            document.getElementById('citation-direct').checked = false;
+            modal.style.display = 'none';
+        });
 
         document.getElementById('btnFormatar').addEventListener('click', async function() {
             this.innerText = 'Formatando...'; this.disabled = true;
             
             const editorData = editor.getData();
-            
-            const info_trabalho = {
-                autor: document.getElementById('info_autor').value,
-                titulo: document.getElementById('info_titulo').value,
-                subtitulo: document.getElementById('info_subtitulo').value,
-                instituicao: document.getElementById('info_instituicao').value,
-                curso: document.getElementById('info_curso').value,
-                cidade: document.getElementById('info_cidade').value,
-                ano: document.getElementById('info_ano').value,
-                orientador: document.getElementById('info_orientador').value
-            };
-
+            const info_trabalho = { autor: document.getElementById('info_autor').value, titulo: document.getElementById('info_titulo').value, subtitulo: document.getElementById('info_subtitulo').value, instituicao: document.getElementById('info_instituicao').value, curso: document.getElementById('info_curso').value, cidade: document.getElementById('info_cidade').value, ano: document.getElementById('info_ano').value, orientador: document.getElementById('info_orientador').value };
             const referencias = [];
             document.querySelectorAll('.referencia').forEach(bloco => {
                 const autor = bloco.querySelector('.autor').value; if (!autor) return;
                 const tipo = bloco.querySelector('.tipo-referencia').value;
                 const referencia = { tipo: tipo, autor: autor, titulo: bloco.querySelector('.titulo').value, ano: bloco.querySelector('.ano').value };
-                if (tipo === 'livro') {
-                    referencia.cidade = bloco.querySelector('.cidade').value;
-                    referencia.editora = bloco.querySelector('.editora').value;
-                } else if (tipo === 'site') {
-                    referencia.nome_site = bloco.querySelector('.nome_site').value;
-                    referencia.url = bloco.querySelector('.url').value;
-                    referencia.data_acesso = bloco.querySelector('.data_acesso').value;
-                } else if (tipo === 'artigo') {
-                    referencia.nome_revista = bloco.querySelector('.nome_revista').value;
-                    referencia.volume = bloco.querySelector('.volume').value;
-                    referencia.numero = bloco.querySelector('.numero').value;
-                    referencia.paginas = bloco.querySelector('.paginas').value;
-                }
+                if (tipo === 'livro') { referencia.cidade = bloco.querySelector('.cidade').value; referencia.editora = bloco.querySelector('.editora').value; } 
+                else if (tipo === 'site') { referencia.nome_site = bloco.querySelector('.nome_site').value; referencia.url = bloco.querySelector('.url').value; referencia.data_acesso = bloco.querySelector('.data_acesso').value; } 
+                else if (tipo === 'artigo') { referencia.nome_revista = bloco.querySelector('.nome_revista').value; referencia.volume = bloco.querySelector('.volume').value; referencia.numero = bloco.querySelector('.numero').value; referencia.paginas = bloco.querySelector('.paginas').value; }
                 referencias.push(referencia);
             });
-
-            const dadosParaEnviar = { 
-                info_trabalho, 
-                texto_html: editorData, 
-                referencias 
-            };
+            const dadosParaEnviar = { info_trabalho, texto_html: editorData, referencias };
 
             try {
-                const response = await fetch('http://127.0.0.1:5000/formatar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(dadosParaEnviar)
-                });
-
+                const response = await fetch('http://127.0.0.1:5000/formatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosParaEnviar) });
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = 'trabalho_formatado.docx';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
+                    a.style.display = 'none'; a.href = url; a.download = 'trabalho_formatado.docx';
+                    document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url);
                 } else {
-                    alert("Ocorreu um erro ao formatar o documento.");
-                    console.error("Erro do servidor:", await response.text());
+                    alert("Ocorreu um erro ao formatar o documento."); console.error("Erro do servidor:", await response.text());
                 }
             } catch (error) {
-                console.error('Erro de rede:', error);
-                alert("Não foi possível conectar ao servidor.");
+                console.error('Erro de rede:', error); alert("Não foi possível conectar ao servidor.");
             } finally {
-                this.innerText = 'Formatar e Baixar .DOCX';
-                this.disabled = false;
+                this.innerText = 'Formatar e Baixar .DOCX'; this.disabled = false;
             }
         });
         
