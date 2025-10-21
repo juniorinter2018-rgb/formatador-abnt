@@ -1,4 +1,4 @@
-# motor.py (Versão com formatação de referências ABNT corrigida)
+# motor.py
 
 import docx
 from docx.shared import Cm, Pt
@@ -119,7 +119,6 @@ def gerar_documento(info_trabalho, texto_html, dados_referencias):
     document.add_page_break()
     processar_html_para_docx(document, texto_html)
 
-    # --- SECÇÃO DE REFERÊNCIAS (COM FORMATAÇÃO ABNT CORRIGIDA) ---
     if dados_referencias:
         document.add_page_break()
         p_ref = document.add_paragraph('REFERÊNCIAS')
@@ -132,7 +131,6 @@ def gerar_documento(info_trabalho, texto_html, dados_referencias):
             p.paragraph_format.line_spacing = 1.0
             
             autor_formatado = formatar_autor_abnt(ref.get('autor', ''))
-            # Capitaliza apenas a primeira letra do título
             titulo = ref.get('titulo', '').strip()
             titulo_capitalizado = titulo.capitalize() if titulo else ''
             

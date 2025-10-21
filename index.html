@@ -3,94 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Formatador ABNT com CKEditor</title>
-    <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
-    <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/translations/pt-br.js"></script>
+    <title>Formatador ABNT (v3 - Sidebar com Modais)</title>
+
+    <script src="https://cdn.tiny.cloud/1/eukiht2r0pnthtjvziae46j0k7oxe5xgkq10dp01y7900qp4/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/citation-js/build/citation.js"></script>
 
     <style>
-        body { background-color: #f0f2f5; font-family: 'Arial', sans-serif; margin: 0; padding: 20px 0; }
-        .container { max-width: 1200px; margin: auto; }
-        .config-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h1, h2 { color: #2c3e50; text-align: center; }
-        .button-group { display: flex; gap: 10px; margin-top: 20px; }
-        button { background-color: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; font-size: 1.1em; font-weight: bold; display: block; width: 100%; }
-        button#btnFormatar { background-color: #1abc9c; }
-        button#btnAdicionar { background-color: #2ecc71; margin-bottom: 20px; width: auto; padding: 10px 15px; font-size: 0.9em; display: inline-block;}
+        
+        :root {
+            --cor-principal: #3498db;
+            --cor-fundo-app: #F8F9FA;
+            --cor-fundo-painel: #ffffff;
+            --cor-fundo-editor-bg: #E9ECEF;
+            --cor-texto: #212529;
+            --cor-texto-suave: #6C757D;
+            --cor-borda: #E9ECEF;
+            --cor-borda-toolbar: #DADCE0;
+            --altura-header: 60px;
+            --largura-sidebar-inicial: 200px; 
+            --min-sidebar-width: 0px;
+            --handle-width: 8px;
+            --z-index-header: 1000;
+            --z-index-sidebar: 900;
+            --z-index-handle: 950;
+            --z-index-modal: 1050; 
+        }
 
-        #editor-container {
-            background: white;
-            width: 21cm;
-            min-height: 29.7cm;
-            margin: 20px auto;
-            box-shadow: 0 0 15px rgba(0,0,0,0.15);
-            padding: 1cm;
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
+        body, html { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 16px; background-color: var(--cor-fundo-app); color: var(--cor-texto); overflow: hidden; }
+
         
-        .ck-editor__editable_inline {
-            width: 100%; min-height: 27.7cm; padding: 3cm 2cm 2cm 3cm !important;
-            box-sizing: border-box; font-family: 'Arial', sans-serif; font-size: 12pt; line-height: 1.5;
+        .app-container { display: flex; flex-direction: column; height: 100vh; }
+        .app-header {
+            height: var(--altura-header); background-color: var(--cor-fundo-painel);
+            border-bottom: 1px solid var(--cor-borda); display: flex; align-items: center;
+            padding: 0 20px; position: fixed; top: 0; left: 0; right: 0;
+            z-index: var(--z-index-header); box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
-        .ck-content h1, .ck-content h2 {
-            font-weight: bold; font-size: 12pt !important; text-align: left; text-indent: 0;
-            line-height: 1.5; margin-bottom: 1em;
-        }
-        .ck-content h1 { text-transform: uppercase; }
-        .ck-content p { text-align: justify; text-indent: 1.25cm; margin-bottom: 1em; }
-        .ck-content blockquote p { font-size: 10pt; line-height: 1.0; text-indent: 0; text-align: justify; margin-bottom: 0; }
-        .ck-content blockquote {
-            margin-left: 0; padding-left: 4cm; font-size: 10pt; line-height: 1.0;
-            text-indent: 0; border-left: none; margin-bottom: 1em;
-        }
+        .app-header h1 { margin: 0; font-size: 1.5em; color: var(--cor-principal); }
+        .app-body { display: flex; height: calc(100% - var(--altura-header)); margin-top: var(--altura-header); flex-grow: 1; position: relative; }
+
         
-        .modal {
-            display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
-            overflow: auto; background-color: rgba(0,0,0,0.4);
+        .app-sidebar {
+            width: var(--largura-sidebar-inicial);
+            min-width: var(--min-sidebar-width);
+            max-width: 500px;
+            background-color: var(--cor-fundo-painel); border-right: 1px solid var(--cor-borda);
+            padding: 20px 10px; 
+            overflow: hidden; 
+            display: flex; flex-direction: column; gap: 10px; 
+            position: fixed; left: 0; top: var(--altura-header); bottom: 0;
+            z-index: var(--z-index-sidebar); transition: width 0.3s ease, padding 0.3s ease;
         }
+        .sidebar-collapsed .app-sidebar {
+            width: 0px !important; padding: 0 !important; border-right: none;
+        }
+        .sidebar-collapsed .sidebar-resizer { left: 0px !important; background-color: rgba(0,0,0,0.05); }
+        .sidebar-collapsed .app-main { padding-left: calc(var(--handle-width) + 20px) !important; }
+
+        .app-sidebar button {
+            background-color: transparent; border: 1px solid var(--cor-borda); color: var(--cor-texto);
+            padding: 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em; width: 100%;
+            text-align: left; transition: background-color 0.2s, border-color 0.2s;
+        }
+        .app-sidebar button:hover { background-color: var(--cor-fundo-app); border-color: #ccc; }
+
+
+        .sidebar-resizer {
+            width: var(--handle-width); background-color: transparent; cursor: ew-resize;
+            position: fixed; top: var(--altura-header); bottom: 0;
+            left: var(--largura-sidebar-inicial);
+            z-index: var(--z-index-handle); transition: left 0.3s ease;
+        }
+        .sidebar-resizer:hover { background-color: rgba(0,0,0,0.1); }
+
+        .app-main {
+            flex-grow: 1; background-color: var(--cor-fundo-editor-bg); padding: 20px;
+            overflow-y: auto;
+            padding-left: calc(var(--largura-sidebar-inicial) + var(--handle-width) + 20px);
+            transition: padding-left 0.3s ease; height: 100%;
+            display: flex; justify-content: center;
+        }
+
+        #editor-wrapper {
+             background: white; width: 21cm; min-height: 29.7cm;
+             box-shadow: 0 0 15px rgba(0,0,0,0.15); margin: 0; box-sizing: border-box;
+        }
+
+        
+        .modal-overlay {
+            display: none; 
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5); 
+            z-index: var(--z-index-modal);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+
         .modal-content {
-            background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888;
-            width: 80%; max-width: 400px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            background-color: var(--cor-fundo-painel);
+            padding: 30px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            max-width: 90%; max-height: 90%; overflow-y: auto; 
+            position: relative; 
         }
-        .modal-content h3 { margin-top: 0; }
-        .modal-content label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .modal-content input[type="text"] { width: 95%; padding: 8px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #ccc; }
-        .modal-content input[type="checkbox"] { margin-right: 10px; }
-        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .modal-content h2 { margin-top: 0; font-size: 1.5em; border-bottom: 1px solid var(--cor-borda); padding-bottom: 15px; margin-bottom: 20px; }
+        .modal-close-btn {
+            position: absolute; top: 10px; right: 15px;
+            font-size: 1.8em; font-weight: bold; color: var(--cor-texto-suave);
+            background: none; border: none; cursor: pointer; line-height: 1;
+        }
+        .modal-close-btn:hover { color: var(--cor-texto); }
 
-        .ck-button.ck-button-citar { color: #333; }
-        .ck-button.ck-button-citar:hover { background: #e0e0e0; }
+        
+        .modal-content .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; } 
+        .modal-content input[type="text"], .modal-content select { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #ccc; }
+        .modal-content .referencia { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; background-color: #fdfdfd; }
+        .modal-content .campos-especificos { display: none; margin-top: 10px; }
+        .modal-content button { background-color: var(--cor-principal); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1em; margin-top: 10px; }
+        .modal-content button:hover { background-color: #2980b9; }
+        .modal-content #btnAdicionar { background-color: #2ecc71; }
+        .modal-content #btnAdicionar:hover { background-color: #27ae60; }
 
-        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        input[type="text"], select { width: 98%; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ccc;}
-        .referencia { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
-        .campos-especificos { display: none; }
+
+        
+        .tox:not(.tox-fullscreen) .tox-toolbar-overlord { background-color: var(--cor-fundo-app); border-bottom: 1px solid var(--cor-borda-toolbar); }
+        .tox .tox-toolbar__group { border-color: var(--cor-borda-toolbar) !important; padding: 0 5px !important; margin: 0 2px !important; }
+        .tox .tox-tbtn { background: transparent; border-radius: 3px; margin: 2px !important; height: 30px; width: 30px; }
+        .tox .tox-tbtn:hover { background-color: rgba(0,0,0,0.08); }
+        .tox .tox-tbtn svg { fill: #5f6368; width: 18px; height: 18px; }
+        .tox .tox-tbtn--active { background-color: #e8f0fe; }
+        .tox .tox-tbtn--active svg { fill: #1a73e8; }
+        .tox .tox-statusbar { border-top: 1px solid var(--cor-borda-toolbar) !important; background: var(--cor-fundo-app); }
+        .tox .tox-notification--warning { display: none !important; }
+
     </style>
 </head>
 <body>
-    <div id="citation-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <h3>Inserir Citação</h3>
-            <label for="citation-author">Sobrenome do Autor:</label>
-            <input type="text" id="citation-author" placeholder="Ex: Silva">
-            <label for="citation-year">Ano:</label>
-            <input type="text" id="citation-year" placeholder="Ex: 2024">
-            <label for="citation-page">Página (opcional):</label>
-            <input type="text" id="citation-page" placeholder="Ex: 42">
-            <div>
-                <input type="checkbox" id="citation-direct">
-                <label for="citation-direct" style="display: inline;">É citação direta (curta)?</label>
-            </div>
-            <button id="insert-citation-btn" style="margin-top: 20px;">Inserir</button>
+    <div class="app-container" id="app-container">
+        <header class="app-header">
+            <h1>Formatador ABNT</h1>
+            <button id="toggle-sidebar" style="margin-left: auto; background: none; border: none; font-size: 1.5em; cursor: pointer;">☰</button>
+        </header>
+
+        <div class="app-body">
+            <aside class="app-sidebar">
+                <button id="btnAbrirModalCapa">Editar Capa</button>
+                <button id="btnAbrirModalReferencias">Editar Referências</button>
+                 <button id="btnFormatar" style="margin-top: auto; background-color: #1abc9c;">Formatar e Baixar .DOCX</button>
+            </aside>
+
+            <div class="sidebar-resizer" id="sidebar-resizer-handle"></div>
+
+            <main class="app-main">
+                <div id="editor-wrapper">
+                    <textarea id="editor">
+                        <h1>1 INTRODUÇÃO</h1><p>...</p>
+                        <h1>2 DESENVOLVIMENTO</h1><p>...</p>
+                        <h2>2.1 Tecnologias</h2><p>...</p>
+                        <blockquote><p>Citação longa...</p></blockquote>
+                    </textarea>
+                </div>
+            </main>
         </div>
     </div>
 
-    <div class="container">
-        <div class="config-panel">
-            <h1>Formatador ABNT</h1>
-            <h2>Painel de Controlo</h2>
+    <div id="modal-capa" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" data-modal-id="modal-capa">&times;</button>
+            <h2>Informações da Capa</h2>
             <div class="grid-container">
-                 <input type="text" id="info_autor" placeholder="Nome(s) do(s) Autor(es)">
+                <input type="text" id="info_autor" placeholder="Nome(s) do(s) Autor(es)">
                 <input type="text" id="info_titulo" placeholder="Título do Trabalho">
                 <input type="text" id="info_subtitulo" placeholder="Subtítulo (se houver)">
                 <input type="text" id="info_instituicao" placeholder="Nome da Instituição">
@@ -99,195 +183,330 @@
                 <input type="text" id="info_ano" placeholder="Ano de Entrega">
                 <input type="text" id="info_orientador" placeholder="Nome do Orientador">
             </div>
-            <h2 style="margin-top: 30px;">Referências Bibliográficas</h2>
+             <button class="modal-close-btn-bottom" data-modal-id="modal-capa" style="margin-top: 20px;">Fechar</button>
+        </div>
+    </div>
+
+    <div id="modal-referencias" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" data-modal-id="modal-referencias">&times;</button>
+            <h2>Referências Bibliográficas</h2>
             <div id="referenciasContainer">
                 <div class="referencia">
-                    <select class="tipo-referencia"><option value="livro" selected>Livro</option><option value="site">Site</option><option value="artigo">Artigo</option></select>
-                    <input type="text" class="autor" placeholder="Autor (Ex: SILVA, João)"><input type="text" class="titulo" placeholder="Título"><input type="text" class="ano" placeholder="Ano">
-                    <div class="campos-especificos campos-livro" style="display: block;"><input type="text" class="cidade" placeholder="Cidade"><input type="text" class="editora" placeholder="Editora"></div>
-                    <div class="campos-especificos campos-site"><input type="text" class="nome_site" placeholder="Nome do Site"><input type="text" class="url" placeholder="URL"><input type="text" class="data_acesso" placeholder="Data de Acesso"></div>
-                    <div class="campos-especificos campos-artigo"><input type="text" class="nome_revista" placeholder="Nome da Revista"><input type="text" class="volume" placeholder="Volume"><input type="text" class="numero" placeholder="Número"><input type="text" class="paginas" placeholder="Páginas"></div>
+                    <select class="tipo-referencia">
+                        <option value="livro" selected>Livro</option>
+                        <option value="site">Site</option>
+                        <option value="artigo">Artigo</option>
+                    </select>
+                    <input type="text" class="autor" placeholder="Autor (Ex: SILVA, João)">
+                    <input type="text" class="titulo" placeholder="Título">
+                    <input type="text" class="ano" placeholder="Ano">
+                    <div class="campos-especificos campos-livro" style="display: block;">
+                        <input type="text" class="cidade" placeholder="Cidade">
+                        <input type="text" class="editora" placeholder="Editora">
+                    </div>
+                    <div class="campos-especificos campos-site">
+                        <input type="text" class="nome_site" placeholder="Nome do Site">
+                        <input type="text" class="url" placeholder="URL">
+                        <input type="text" class="data_acesso" placeholder="Data de Acesso (Ex: 21 out. 2025)">
+                    </div>
+                    <div class="campos-especificos campos-artigo">
+                        <input type="text" class="nome_revista" placeholder="Nome da Revista">
+                        <input type="text" class="volume" placeholder="Volume (v.)">
+                        <input type="text" class="numero" placeholder="Número (n.)">
+                        <input type="text" class="paginas" placeholder="Páginas (p.)">
+                    </div>
                 </div>
             </div>
             <button id="btnAdicionar">Adicionar Referência</button>
-            <div class="button-group">
-                <button id="btnFormatar">Formatar e Baixar .DOCX</button>
-            </div>
-        </div>
-
-        <div id="editor-container">
-            <div id="editor"></div>
+            <button class="modal-close-btn-bottom" data-modal-id="modal-referencias" style="margin-top: 20px; background-color: var(--cor-texto-suave);">Fechar</button>
         </div>
     </div>
 
     <script>
-        let editor;
-
-        ClassicEditor
-            .create( document.querySelector( '#editor' ), {
-                language: 'pt-br',
-                toolbar: [ 'heading', '|', 'bold', 'italic', 'blockQuote', '|', 'undo', 'redo' ],
-                heading: {
-                    options: [
-                        { model: 'paragraph', title: 'Parágrafo', class: 'ck-heading_paragraph' },
-                        { model: 'heading1', view: 'h1', title: 'Título 1', class: 'ck-heading_heading1' },
-                        { model: 'heading2', view: 'h2', title: 'Título 2', class: 'ck-heading_heading2' }
-                    ]
-                }
-            } )
-            .then( newEditor => {
-                editor = newEditor;
-                
-                const toolbarElement = editor.ui.view.toolbar.element;
-                const separator = document.createElement('span');
-                separator.className = 'ck-toolbar__separator';
-                toolbarElement.appendChild(separator);
-
-                const citationButton = document.createElement('button');
-                citationButton.className = 'ck-button ck-button-citar';
-                citationButton.setAttribute('type', 'button');
-                citationButton.innerHTML = 'Citar';
-                citationButton.title = 'Inserir Citação (ABNT)';
-
-                citationButton.addEventListener('click', () => {
-                    document.getElementById('citation-modal').style.display = 'block';
-                });
-
-                toolbarElement.appendChild(citationButton);
-            } )
-            .catch( error => {
-                console.error( 'Erro ao iniciar o CKEditor 5:', error );
-            } );
-            
-        const modal = document.getElementById('citation-modal');
-        const closeBtn = document.querySelector('.close-button');
-        const insertBtn = document.getElementById('insert-citation-btn');
-
-        closeBtn.onclick = () => { modal.style.display = 'none'; };
-        window.onclick = (event) => {
-            if (event.target == modal) modal.style.display = 'none';
-        };
-
-        // --- LÓGICA DE CITAÇÃO CORRIGIDA ---
-        insertBtn.addEventListener('click', () => {
-            const author = document.getElementById('citation-author').value.toUpperCase();
-            const year = document.getElementById('citation-year').value;
-            const page = document.getElementById('citation-page').value;
-            const isDirect = document.getElementById('citation-direct').checked;
-
-            if (!author || !year) {
-                alert('Por favor, preencha o Sobrenome do Autor e o Ano.');
-                return;
-            }
-
-            // Devolve o foco ao editor para garantir que a seleção está ativa
-            editor.editing.view.focus();
-
-            const model = editor.model;
-            const selection = model.document.selection;
-            const selectedFragment = model.getSelectedContent(selection);
-
-            // Função recursiva e segura para extrair texto plano do conteúdo selecionado
-            function getTextFromFragment(fragment) {
-                let text = '';
-                for (const child of fragment.getChildren()) {
-                    if (child.is('text') || child.is('textProxy')) {
-                        text += child.data;
-                    } else if (child.is('element') && child.childCount > 0) {
-                        text += getTextFromFragment(child); // Recurso para elementos aninhados
-                    }
-                }
-                return text;
-            }
-            const plainText = getTextFromFragment(selectedFragment);
-
-            let citationText = '';
-            if (isDirect) {
-                if (!page) {
-                    alert('Citações diretas exigem um número de página.');
-                    return;
-                }
-                if (plainText.length === 0) {
-                    alert('Para citação direta, por favor, selecione o texto que deseja citar.');
-                    return;
-                }
-                citationText = `"${plainText}" (${author}, ${year}, p. ${page})`;
-            } else {
-                citationText = ` (${author}, ${year})`;
-            }
-
-            // Usa a API do modelo para inserir o texto, que é a forma mais segura
-            model.change(writer => {
-                // Se houver texto selecionado (citação direta), substitui-o.
-                // Caso contrário, insere no cursor.
-                if (!selection.isCollapsed) {
-                    writer.insertText(citationText, selection.getFirstRange());
-                } else {
-                    writer.insertText(citationText, selection.getFirstPosition());
-                }
-            });
-
-            // Limpa e fecha o modal
-            document.getElementById('citation-author').value = '';
-            document.getElementById('citation-year').value = '';
-            document.getElementById('citation-page').value = '';
-            document.getElementById('citation-direct').checked = false;
-            modal.style.display = 'none';
-        });
-
-        document.getElementById('btnFormatar').addEventListener('click', async function() {
-            this.innerText = 'Formatando...'; this.disabled = true;
-            
-            const editorData = editor.getData();
-            const info_trabalho = { autor: document.getElementById('info_autor').value, titulo: document.getElementById('info_titulo').value, subtitulo: document.getElementById('info_subtitulo').value, instituicao: document.getElementById('info_instituicao').value, curso: document.getElementById('info_curso').value, cidade: document.getElementById('info_cidade').value, ano: document.getElementById('info_ano').value, orientador: document.getElementById('info_orientador').value };
-            const referencias = [];
-            document.querySelectorAll('.referencia').forEach(bloco => {
-                const autor = bloco.querySelector('.autor').value; if (!autor) return;
-                const tipo = bloco.querySelector('.tipo-referencia').value;
-                const referencia = { tipo: tipo, autor: autor, titulo: bloco.querySelector('.titulo').value, ano: bloco.querySelector('.ano').value };
-                if (tipo === 'livro') { referencia.cidade = bloco.querySelector('.cidade').value; referencia.editora = bloco.querySelector('.editora').value; } 
-                else if (tipo === 'site') { referencia.nome_site = bloco.querySelector('.nome_site').value; referencia.url = bloco.querySelector('.url').value; referencia.data_acesso = bloco.querySelector('.data_acesso').value; } 
-                else if (tipo === 'artigo') { referencia.nome_revista = bloco.querySelector('.nome_revista').value; referencia.volume = bloco.querySelector('.volume').value; referencia.numero = bloco.querySelector('.numero').value; referencia.paginas = bloco.querySelector('.paginas').value; }
-                referencias.push(referencia);
-            });
-            const dadosParaEnviar = { info_trabalho, texto_html: editorData, referencias };
-
-            try {
-                const response = await fetch('http://127.0.0.1:5000/formatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosParaEnviar) });
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none'; a.href = url; a.download = 'trabalho_formatado.docx';
-                    document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url);
-                } else {
-                    alert("Ocorreu um erro ao formatar o documento."); console.error("Erro do servidor:", await response.text());
-                }
-            } catch (error) {
-                console.error('Erro de rede:', error); alert("Não foi possível conectar ao servidor.");
-            } finally {
-                this.innerText = 'Formatar e Baixar .DOCX'; this.disabled = false;
-            }
-        });
         
-        function configurarLogicaReferencia(bloco) {
+        function getCitationFeedItems() { }
+
+        
+        tinymce.init({
+            selector: '#editor',
+            plugins: 'lists link image table code help wordcount autoresize quickbars',
+            toolbar: 'undo redo | blocks | bold italic | bullist numlist | blockquote | link image table | code | help',
+            language: 'pt_BR',
+            height: 'calc(100vh - 100px)',
+            autoresize_min_height: 600,
+            autoresize_overflow_padding: 20,
+            autoresize_bottom_margin: 50,
+            menubar: false,
+            statusbar: true,
+            promotion: false,
+            block_formats: 'Parágrafo=p; Título 1=h1; Título 2=h2; Título 3=h3; Citação Longa=blockquote',
+            content_style: `
+                body{font-family:Arial,sans-serif;font-size:12pt;line-height:1.5;margin:0;padding:3cm 2cm 2cm 3cm !important;box-sizing:border-box;min-height:calc(29.7cm - 5cm);}
+                h1,h2,h3,h4,h5,h6{font-family:Arial,sans-serif;font-weight:bold;font-size:12pt !important;color:black;text-align:left;text-indent:0;line-height:1.5;margin-top:1.5em;margin-bottom:1em;page-break-after:avoid;}
+                h1{text-transform:uppercase;}
+                p{text-align:justify;text-indent:1.25cm;margin-bottom:0.5em;margin-top:0;}
+                h1+p,h2+p,h3+p,h4+p,h5+p,h6+p{text-indent:1.25cm;}
+                blockquote{font-size:10pt;line-height:1.0;margin-left:4cm;margin-right:0;margin-top:1em;margin-bottom:1em;padding:0;border:none;text-indent:0;text-align:justify;}
+                blockquote p{font-size:10pt;line-height:1.0;text-indent:0;margin-bottom:0;}
+                ul,ol{margin-left:1.25cm;text-indent:0;padding-left:2em;margin-bottom:1em;}
+                li{text-align:justify;margin-bottom:0.5em;}
+                table{border-collapse:collapse;width:auto;margin-bottom:1em;}
+                th,td{border:1px solid black;padding:4px 8px;text-align:left;}
+            `,
+            object_resizing: false,
+            image_advtab: true,
+            link_assume_external_targets: 'https',
+            quickbars_selection_toolbar: 'bold italic | quicklink blockquote',
+            quickbars_insert_toolbar: 'quickimage quicktable',
+            setup: (editor) => {
+                console.log('TinyMCE inicializado com sucesso!');
+                window.tinymceEditor = editor;
+            }
+        });
+
+        
+        const sidebar = document.querySelector('.app-sidebar');
+        const handle = document.getElementById('sidebar-resizer-handle');
+        const mainContent = document.querySelector('.app-main');
+        const appContainer = document.getElementById('app-container');
+        const toggleButton = document.getElementById('toggle-sidebar');
+
+        let isResizing = false;
+        let startX;
+        let startWidth;
+        const minWidth = 0;
+        const maxWidth = 500;
+        let sidebarWasCollapsed = appContainer.classList.contains('sidebar-collapsed'); 
+
+        if (handle && sidebar && mainContent && appContainer) {
+             handle.addEventListener('mousedown', function(e) { 
+                isResizing = true;
+                 startX = e.clientX;
+                 startWidth = sidebar.offsetWidth;
+                 document.body.style.cursor = 'ew-resize';
+                 document.body.style.userSelect = 'none';
+                 sidebar.style.transition = 'none';
+                 mainContent.style.transition = 'none';
+                 handle.style.transition = 'none';
+                 appContainer.style.transition = 'none';
+                 document.addEventListener('mousemove', handleMouseMove);
+                 document.addEventListener('mouseup', handleMouseUp);
+             });
+
+             function handleMouseMove(e) { 
+                if (!isResizing) return;
+                 const currentX = e.clientX;
+                 const diffX = currentX - startX;
+                 let newWidth = startWidth + diffX;
+
+                 if (newWidth < minWidth) newWidth = minWidth;
+                 if (newWidth > maxWidth) newWidth = maxWidth;
+
+                 sidebar.style.width = newWidth + 'px';
+                 handle.style.left = newWidth + 'px';
+                 mainContent.style.paddingLeft = `calc(${newWidth}px + var(--handle-width) + 20px)`;
+
+                 if (newWidth <= minWidth + 5) {
+                     if (!appContainer.classList.contains('sidebar-collapsed')) {
+                         appContainer.classList.add('sidebar-collapsed');
+                     }
+                     sidebarWasCollapsed = true;
+                 } else {
+                     if (appContainer.classList.contains('sidebar-collapsed')) {
+                         appContainer.classList.remove('sidebar-collapsed');
+                     }
+                     sidebarWasCollapsed = false;
+                 }
+             }
+
+             function handleMouseUp() { 
+                if (isResizing) {
+                     isResizing = false;
+                     document.body.style.cursor = '';
+                     document.body.style.userSelect = '';
+                     sidebar.style.transition = '';
+                     mainContent.style.transition = '';
+                     handle.style.transition = '';
+                     appContainer.style.transition = '';
+                     document.removeEventListener('mousemove', handleMouseMove);
+                     document.removeEventListener('mouseup', handleMouseUp);
+
+                     if (!sidebarWasCollapsed) {
+                          document.documentElement.style.setProperty('--largura-sidebar-inicial', sidebar.style.width);
+                     }
+                 }
+             }
+
+             function expandSidebar() { 
+                const targetWidthStr = getComputedStyle(document.documentElement).getPropertyValue('--largura-sidebar-inicial') || '200px';
+                 const targetWidth = parseInt(targetWidthStr, 10);
+                 appContainer.classList.remove('sidebar-collapsed');
+                 sidebar.style.width = targetWidth + 'px';
+                 handle.style.left = targetWidth + 'px';
+                 mainContent.style.paddingLeft = `calc(${targetWidth}px + var(--handle-width) + 20px)`;
+             }
+             function collapseSidebar() { 
+                 appContainer.classList.add('sidebar-collapsed');
+                 sidebar.style.width = minWidth + 'px';
+                 handle.style.left = minWidth + 'px';
+                 mainContent.style.paddingLeft = `calc(${minWidth}px + var(--handle-width) + 20px)`;
+             }
+             if (toggleButton) {
+                 toggleButton.addEventListener('click', () => {
+                     if (appContainer.classList.contains('sidebar-collapsed')) expandSidebar(); else collapseSidebar();
+                 });
+             }
+        }
+
+        
+        const btnAbrirModalCapa = document.getElementById('btnAbrirModalCapa');
+        const btnAbrirModalReferencias = document.getElementById('btnAbrirModalReferencias');
+        const modalCapa = document.getElementById('modal-capa');
+        const modalReferencias = document.getElementById('modal-referencias');
+        const closeButtons = document.querySelectorAll('.modal-close-btn, .modal-close-btn-bottom');
+        const modalOverlays = document.querySelectorAll('.modal-overlay');
+
+        function openModal(modalElement) {
+            if (modalElement) modalElement.classList.add('active');
+        }
+        function closeModal(modalElement) {
+            if (modalElement) modalElement.classList.remove('active');
+        }
+
+        if (btnAbrirModalCapa && modalCapa) {
+            btnAbrirModalCapa.addEventListener('click', () => openModal(modalCapa));
+        }
+        if (btnAbrirModalReferencias && modalReferencias) {
+            btnAbrirModalReferencias.addEventListener('click', () => openModal(modalReferencias));
+        }
+
+        
+        closeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const modalId = button.getAttribute('data-modal-id');
+                const modalToClose = document.getElementById(modalId);
+                closeModal(modalToClose);
+            });
+        });
+
+        
+        modalOverlays.forEach(overlay => {
+             overlay.addEventListener('click', (event) => {
+                 
+                 if (event.target === overlay) {
+                     closeModal(overlay);
+                 }
+             });
+        });
+
+
+        
+        const btnFormatar = document.getElementById('btnFormatar');
+        if (btnFormatar) {
+             btnFormatar.addEventListener('click', async function() {
+                 const editorInstance = tinymce.get('editor');
+                 if (!editorInstance) { alert("Editor TinyMCE não inicializado."); return; }
+                 this.innerText = 'Formatando...'; this.disabled = true;
+                 const editorData = editorInstance.getContent();
+                 const cleanedHtml = editorData;
+
+                 const info_trabalho = {};
+                 const referencias = [];
+
+                 
+                 const modalCapaContent = document.querySelector('#modal-capa .modal-content');
+                 if(modalCapaContent){
+                     info_trabalho.autor = modalCapaContent.querySelector('#info_autor')?.value || '';
+                     info_trabalho.titulo = modalCapaContent.querySelector('#info_titulo')?.value || '';
+                     info_trabalho.subtitulo = modalCapaContent.querySelector('#info_subtitulo')?.value || '';
+                     info_trabalho.instituicao = modalCapaContent.querySelector('#info_instituicao')?.value || '';
+                     info_trabalho.curso = modalCapaContent.querySelector('#info_curso')?.value || '';
+                     info_trabalho.cidade = modalCapaContent.querySelector('#info_cidade')?.value || '';
+                     info_trabalho.ano = modalCapaContent.querySelector('#info_ano')?.value || '';
+                     info_trabalho.orientador = modalCapaContent.querySelector('#info_orientador')?.value || '';
+                 }
+
+                 
+                  const modalReferenciasContent = document.querySelector('#modal-referencias .modal-content');
+                  if(modalReferenciasContent){
+                      modalReferenciasContent.querySelectorAll('.referencia').forEach(bloco => {
+                          const autorInput = bloco.querySelector('.autor');
+                          const tituloInput = bloco.querySelector('.titulo');
+                          const anoInput = bloco.querySelector('.ano');
+                          const tipoSelect = bloco.querySelector('.tipo-referencia');
+
+                          const autor = autorInput?.value;
+                          if (!autor) return;
+
+                          const tipo = tipoSelect?.value;
+                          const referencia = { tipo: tipo, autor: autor, titulo: tituloInput?.value || '', ano: anoInput?.value || '' };
+
+                          if (tipo === 'livro') { referencia.cidade = bloco.querySelector('.cidade')?.value || ''; referencia.editora = bloco.querySelector('.editora')?.value || ''; }
+                          else if (tipo === 'site') { referencia.nome_site = bloco.querySelector('.nome_site')?.value || ''; referencia.url = bloco.querySelector('.url')?.value || ''; referencia.data_acesso = bloco.querySelector('.data_acesso')?.value || ''; }
+                          else if (tipo === 'artigo') { referencia.nome_revista = bloco.querySelector('.nome_revista')?.value || ''; referencia.volume = bloco.querySelector('.volume')?.value || ''; referencia.numero = bloco.querySelector('.numero')?.value || ''; referencia.paginas = bloco.querySelector('.paginas')?.value || ''; }
+                          referencias.push(referencia);
+                     });
+                  }
+
+                 const dadosParaEnviar = { info_trabalho, texto_html: cleanedHtml, referencias };
+                 console.log("Dados a enviar:", dadosParaEnviar); 
+
+                 try { 
+                     const response = await fetch('http://127.0.0.1:5000/formatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosParaEnviar) });
+                     if (response.ok) {
+                         const blob = await response.blob();
+                         const url = window.URL.createObjectURL(blob);
+                         const a = document.createElement('a');
+                         a.style.display = 'none'; a.href = url; a.download = 'trabalho_formatado.docx';
+                         document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url);
+                         document.body.removeChild(a);
+                     } else {
+                         alert("Ocorreu um erro ao formatar o documento."); console.error("Erro do servidor:", await response.text());
+                     }
+                 } catch (error) {
+                     console.error('Erro de rede:', error); alert("Não foi possível conectar ao servidor.");
+                 } finally {
+                     this.innerText = 'Formatar e Baixar .DOCX'; this.disabled = false;
+                 }
+            });
+        }
+
+        
+        function configurarLogicaReferenciaModal(bloco) {
             const select = bloco.querySelector('.tipo-referencia');
+            if (!select) return;
             select.addEventListener('change', function() {
                 bloco.querySelectorAll('.campos-especificos').forEach(div => div.style.display = 'none');
                 const camposToShow = bloco.querySelector(`.campos-${this.value}`);
                 if (camposToShow) camposToShow.style.display = 'block';
             });
+             bloco.querySelectorAll('.campos-especificos').forEach(div => div.style.display = 'none');
+             const camposIniciais = bloco.querySelector(`.campos-${select.value}`);
+             if (camposIniciais) camposIniciais.style.display = 'block';
         }
-        document.querySelectorAll('.referencia').forEach(configurarLogicaReferencia);
-        document.getElementById('btnAdicionar').addEventListener('click', function() {
-            const container = document.getElementById('referenciasContainer');
-            const novoBloco = container.children[0].cloneNode(true);
-            novoBloco.querySelectorAll('input').forEach(input => input.value = '');
-            novoBloco.querySelectorAll('.campos-especificos').forEach(div => div.style.display = 'none');
-            novoBloco.querySelector('.campos-livro').style.display = 'block';
-            configurarLogicaReferencia(novoBloco);
-            container.appendChild(novoBloco);
-        });
+         
+        document.querySelectorAll('#modal-referencias .referencia').forEach(configurarLogicaReferenciaModal);
+
+        
+        const btnAdicionarModal = document.querySelector('#modal-referencias #btnAdicionar');
+        if (btnAdicionarModal) {
+            btnAdicionarModal.addEventListener('click', function() {
+                const container = document.querySelector('#modal-referencias #referenciasContainer');
+                if (!container) return;
+                const primeiroBloco = container.querySelector('.referencia');
+                if (!primeiroBloco) return;
+
+                const novoBloco = primeiroBloco.cloneNode(true);
+                novoBloco.querySelectorAll('input').forEach(input => input.value = '');
+                const selectTipo = novoBloco.querySelector('.tipo-referencia');
+                if (selectTipo) selectTipo.value = 'livro';
+
+                configurarLogicaReferenciaModal(novoBloco); 
+                container.appendChild(novoBloco);
+            });
+        }
+
     </script>
 </body>
 </html>
